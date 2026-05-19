@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.git/
+.claude/
+.venv/
+venv/
+logs/
+*.log
+.streamlit/
+.DS_Store
+README.md
+*.md
