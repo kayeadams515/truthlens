@@ -25,6 +25,8 @@ hidden_imports = [
     "httpx", "aiohttp", "urllib3",
     # Utils
     "pydantic", "yaml", "dotenv", "loguru", "uuid",
+    # jaraco (setuptools deps)
+    "jaraco.text", "jaraco.context", "jaraco.functools",
 ]
 
 # Collect all submodules
@@ -99,11 +101,4 @@ exe = EXE(
     entitlements_file=None,
 )
 
-# On macOS, also create a .app bundle
-app = BUNDLE(
-    exe,
-    name="AI资讯透视镜.app",
-    icon=None,
-    bundle_identifier="com.truthlens.visionlens",
-    version="1.0.0",
-)
+# Single executable only (no .app bundle — user runs from terminal or creates alias)
