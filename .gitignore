@@ -8,6 +8,7 @@ logs/
 .claude/
 data/reports/
 data/weekly_news_cache.json
+data/settings.json
 build/
 dist/
 *.spec.bak

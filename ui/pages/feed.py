@@ -182,12 +182,6 @@ def _extract_brief(item: dict) -> str:
 
 def _render_news_grid(news_items: list[dict], prefix: str):
     """Render news cards in grid. Click fills topic + mode and navigates to instant."""
-    controversy_badges = {
-        "high": '<span class="badge badge-danger">🔥 高争议</span>',
-        "medium": '<span class="badge badge-media">📊 中等热度</span>',
-        "low": '<span class="badge badge-official">📋 资讯</span>',
-    }
-
     for row_start in range(0, min(len(news_items), 6), 3):
         cols = st.columns(3)
         for col_idx in range(3):
@@ -197,22 +191,19 @@ def _render_news_grid(news_items: list[dict], prefix: str):
             item = news_items[idx]
             with cols[col_idx]:
                 try:
-                    _render_single_news_card(item, idx, prefix, controversy_badges)
+                    _render_single_news_card(item, idx, prefix)
                 except Exception as e:
                     st.error(f"渲染卡片失败: {e}")
 
 
-def _render_single_news_card(item: dict, idx: int, prefix: str, controversy_badges: dict):
+def _render_single_news_card(item: dict, idx: int, prefix: str):
     """Render a single news card with expand-to-reveal action buttons."""
     title_cn = item.get("title_cn") or item.get("title", "未知")
-    controversy = item.get("controversy", "medium")
-    badge_html = controversy_badges.get(controversy, controversy_badges["medium"])
     location = _extract_location(item)
     event_brief = _extract_brief(item)
 
     st.markdown(f"""
     <div class="cyber-card" style="padding:14px;">
-        {badge_html}
         <h4 class="card-title" style="font-size:14px; margin:6px 0;">{title_cn[:60]}</h4>
         <p style="opacity:0.7; font-size:13px; margin:4px 0;">{event_brief}</p>
         <span style="font-size:11px; opacity:0.5;">📍 {location}</span>

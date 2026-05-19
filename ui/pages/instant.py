@@ -3,7 +3,7 @@
 import streamlit as st
 from datetime import datetime
 
-from config import IS_LLM_CONFIGURED, TAVILY_API_KEY
+from config import IS_LLM_CONFIGURED
 from utils.logger import logger
 
 
@@ -217,24 +217,17 @@ def _display_info_result(topic: str, summary: str, search_results: list):
 # ============================================================
 
 def _search_info(topic: str) -> list[dict]:
-    if TAVILY_API_KEY:
-        try:
-            from tavily import TavilyClient
-            client = TavilyClient(api_key=TAVILY_API_KEY)
-
-            from config import get_active_domains
-            response = client.search(
-                query=topic, search_depth="advanced", max_results=10,
-                include_answer=True, include_raw_content=False,
-                topic="news", days=30,
-                include_domains=get_active_domains(),
-            )
-            results = response.get("results", [])
-            logger.info(f"Tavily search for '{topic[:30]}': {len(results)} results")
-            return results
-        except Exception as e:
-            logger.warning(f"Tavily search failed: {e}")
-            st.error(f"搜索失败：{e}")
+    try:
+        from utils.search import bilingual_search
+        results = bilingual_search(
+            query=topic, max_results=12, search_depth="advanced",
+            topic="news", days=30,
+        )
+        logger.info(f"Bilingual search for '{topic[:30]}': {len(results)} results")
+        return results
+    except Exception as e:
+        logger.warning(f"Search failed: {e}")
+        st.error(f"搜索失败：{e}")
 
     return []
 
@@ -246,8 +239,8 @@ def _filter_relevant(topic: str, results: list[dict]) -> list[dict]:
     if not results:
         return results
     try:
-        from config import create_llm
-        llm = create_llm(temperature=0.0)
+        from config import create_search_llm
+        llm = create_search_llm(temperature=0.0)
 
         items = "\n".join(
             f"{i+1}. {r.get('title', '')} | {r.get('content', '')[:100]}"
@@ -309,8 +302,8 @@ def _show_search_candidates(results: list[dict]):
 def _summarize_info(topic: str, search_results: list[dict]) -> str:
     if IS_LLM_CONFIGURED and search_results:
         try:
-            from config import create_llm
-            llm = create_llm(temperature=0.1)
+            from config import create_integration_llm
+            llm = create_integration_llm(temperature=0.1)
 
             sources_text = "\n\n---\n\n".join(
                 f"来源{i+1}: {r.get('source', '')}\n标题: {r.get('title', '')}\n内容: {r.get('content', '')[:500]}"
@@ -512,7 +505,7 @@ def _answer_followup(topic: str, report: str, question: str, mode: str,
 
     # Search if needed
     additional_context = ""
-    if need_search and TAVILY_API_KEY:
+    if need_search:
         additional_context = _do_search(topic, question)
 
     # Answer
@@ -522,8 +515,8 @@ def _answer_followup(topic: str, report: str, question: str, mode: str,
 def _should_search(topic: str, report: str, question: str) -> bool:
     """Use LLM to decide if the question needs external search."""
     try:
-        from config import create_llm
-        llm = create_llm(temperature=0.0)
+        from config import create_search_llm
+        llm = create_search_llm(temperature=0.0)
 
         prompt = f"""你是一个判断助手。用户刚读了关于「{topic}」的报告，现在有一个追问。
 
@@ -548,17 +541,15 @@ def _should_search(topic: str, report: str, question: str) -> bool:
 
 
 def _do_search(topic: str, question: str) -> str:
-    """Perform Tavily search for supplementary info."""
+    """Perform supplementary search for Q&A follow-up questions."""
     try:
-        from tavily import TavilyClient
         from config import get_active_domains
-        client = TavilyClient(api_key=TAVILY_API_KEY)
-        resp = client.search(
-            query=f"{topic} {question}", search_depth="basic", max_results=3,
-            include_answer=True, topic="news",
-            include_domains=get_active_domains(),
+        from utils.search_providers import search as provider_search
+        results = provider_search(
+            query=f"{topic} {question}",
+            max_results=3, domains=get_active_domains(),
+            search_depth="basic", topic="news",
         )
-        results = resp.get("results", [])
         if not results:
             return ""
         return "\n".join(
@@ -573,8 +564,8 @@ def _generate_answer(topic: str, report: str, question: str,
                      additional_context: str, did_search: bool) -> str:
     """Generate the final answer."""
     try:
-        from config import create_llm
-        llm = create_llm(temperature=0.3)
+        from config import create_integration_llm
+        llm = create_integration_llm(temperature=0.3)
 
         search_note = ""
         if did_search:
@@ -610,9 +601,6 @@ def _disambiguate_topic(topic: str) -> str | None:
     """If keyword is too vague, search and present candidates to user.
     Returns the resolved topic, or None if waiting for user selection.
     """
-    if not TAVILY_API_KEY:
-        return topic
-
     # Never disambiguate homepage news — they're already curated headlines
     if st.session_state.pop("from_feed", False):
         return topic
@@ -623,14 +611,12 @@ def _disambiguate_topic(topic: str) -> str | None:
 
     # Quick search
     try:
-        from tavily import TavilyClient
         from config import get_active_domains
-        client = TavilyClient(api_key=TAVILY_API_KEY)
-        resp = client.search(
-            query=topic, search_depth="basic", max_results=6, topic="news",
-            include_domains=get_active_domains(),
+        from utils.search_providers import search as provider_search
+        results = provider_search(
+            query=topic, max_results=6, domains=get_active_domains(),
+            search_depth="basic", topic="news",
         )
-        results = resp.get("results", [])
     except Exception:
         return topic
 
@@ -647,8 +633,8 @@ def _disambiguate_topic(topic: str) -> str | None:
     # Only run LLM check when results are clearly divergent
     titles = "\n".join(f"{i+1}. {r.get('title', '')}" for i, r in enumerate(results))
     try:
-        from config import create_llm
-        llm = create_llm(temperature=0.0)
+        from config import create_search_llm
+        llm = create_search_llm(temperature=0.0)
 
         decision = llm.call(messages=[{"role": "user", "content": f"""用户搜索关键词：「{topic}」
 

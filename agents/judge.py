@@ -1,7 +1,7 @@
 """Judge Agent (理性法官) — Bayesian truth probability scoring."""
 
 from crewai import Agent
-from agents import create_llm
+from agents import create_integration_llm
 
 
 def create_judge_agent() -> Agent:
@@ -31,7 +31,7 @@ def create_judge_agent() -> Agent:
             "你深知：人类的情感是真相最大的敌人。愤怒的时候，人会把1%的可能性当成99%。"
             "恐惧的时候，人会把99%的安全当成1%。你的任务就是纠正这些认知偏差。"
         ),
-        llm=create_llm(temperature=0.1),
+        llm=create_integration_llm(temperature=0.1),
         verbose=True,
         allow_delegation=False,
     )

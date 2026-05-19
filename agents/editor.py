@@ -1,7 +1,7 @@
 """Editor Agent (首席撰稿人) — Structured report generation."""
 
 from crewai import Agent
-from agents import create_llm
+from agents import create_integration_llm
 
 
 def create_editor_agent() -> Agent:
@@ -63,7 +63,7 @@ def create_editor_agent() -> Agent:
             "你采用学术论文的引用规范来撰写新闻报道——每个自然段末尾标注上标索引，文末附来源汇总。"
             "链接文字为来源名称，而非裸露URL，视觉干净利落。"
         ),
-        llm=create_llm(temperature=0.1),
+        llm=create_integration_llm(temperature=0.1),
         verbose=True,
         allow_delegation=False,
     )

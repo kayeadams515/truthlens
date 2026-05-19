@@ -2,7 +2,7 @@
 
 from crewai import Agent
 from tools.search_tool import TruthLensSearchTool
-from agents import create_llm
+from agents import create_search_llm
 
 
 def create_scout_agent() -> Agent:
@@ -25,7 +25,7 @@ def create_scout_agent() -> Agent:
             "你的职业信条是：不放过任何一条线索，不给任何一方特殊待遇。"
         ),
         tools=[TruthLensSearchTool()],
-        llm=create_llm(temperature=0.1),
+        llm=create_search_llm(temperature=0.1),
         verbose=True,
         allow_delegation=False,
         max_iter=5,

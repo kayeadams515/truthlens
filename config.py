@@ -37,6 +37,22 @@ else:  # anthropic
 IS_LLM_CONFIGURED = bool(LLM_API_KEY)
 
 
+def _get_llm_config(session_key_prefix: str) -> dict:
+    """Read LLM config from Streamlit session state, falling back to env vars."""
+    try:
+        import streamlit as st
+        provider = st.session_state.get(f"{session_key_prefix}_provider")
+        if provider:
+            model = st.session_state.get(f"{session_key_prefix}_model", "")
+            api_key = st.session_state.get(f"{session_key_prefix}_api_key", "")
+            base_url = st.session_state.get(f"{session_key_prefix}_base_url", "")
+            if model and api_key:
+                return {"model": model, "api_key": api_key, "base_url": base_url}
+    except Exception:
+        pass
+    return {"model": LLM_MODEL, "api_key": LLM_API_KEY, "base_url": LLM_BASE_URL}
+
+
 def create_llm(temperature: float = 0.1):
     """Create a CrewAI LLM instance from current config. Single factory for all LLM calls."""
     from crewai import LLM
@@ -44,6 +60,34 @@ def create_llm(temperature: float = 0.1):
     if LLM_BASE_URL:
         kwargs["base_url"] = LLM_BASE_URL
     return LLM(**kwargs)
+
+
+def create_search_llm(temperature: float = 0.1):
+    """Create LLM for search/collection tasks (Scout agent, relevance filters)."""
+    from crewai import LLM
+    cfg = _get_llm_config("search_llm")
+    kwargs = dict(model=cfg["model"], api_key=cfg["api_key"], temperature=temperature)
+    if cfg["base_url"]:
+        kwargs["base_url"] = cfg["base_url"]
+    return LLM(**kwargs)
+
+
+def create_integration_llm(temperature: float = 0.1):
+    """Create LLM for analysis/integration tasks (Challenger, Judge, Editor, Q&A)."""
+    from crewai import LLM
+    cfg = _get_llm_config("integration_llm")
+    kwargs = dict(model=cfg["model"], api_key=cfg["api_key"], temperature=temperature)
+    if cfg["base_url"]:
+        kwargs["base_url"] = cfg["base_url"]
+    return LLM(**kwargs)
+
+
+def is_search_llm_configured() -> bool:
+    return bool(_get_llm_config("search_llm")["api_key"])
+
+
+def is_integration_llm_configured() -> bool:
+    return bool(_get_llm_config("integration_llm")["api_key"])
 
 
 def get_active_domains() -> list[str] | None:

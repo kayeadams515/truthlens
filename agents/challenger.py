@@ -1,7 +1,7 @@
 """Challenger Agent (杠精审核员) — Adversarial cross-examination."""
 
 from crewai import Agent
-from agents import create_llm
+from agents import create_integration_llm
 
 
 def create_challenger_agent() -> Agent:
@@ -25,7 +25,7 @@ def create_challenger_agent() -> Agent:
             "你的口头禅是：'如果一件事听起来太过完美，那它大概率是假的。如果一件事听起来太过荒谬，那它大概率被断章取义了。'"
             "你对人性有深刻的理解：利益在哪里，谎言就在哪里。"
         ),
-        llm=create_llm(temperature=0.3),
+        llm=create_integration_llm(temperature=0.3),
         verbose=True,
         allow_delegation=False,
     )

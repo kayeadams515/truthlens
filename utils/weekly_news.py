@@ -1,34 +1,14 @@
 """Fetch weekly hot news: Chinese + Global, with translated titles and controversy scoring."""
 
 import json
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 
-from config import TAVILY_API_KEY, IS_LLM_CONFIGURED
+from config import IS_LLM_CONFIGURED
 from utils.logger import logger
 
 CACHE_FILE = Path(__file__).parent.parent / "data" / "weekly_news_cache.json"
 
-
-def _tavily_search(query: str, max_results: int = 6, topic: str = "news") -> list[dict]:
-    """Search using Tavily API across both Chinese and Western sources."""
-    if not TAVILY_API_KEY:
-        return []
-    try:
-        from tavily import TavilyClient
-        from config import get_active_domains
-        client = TavilyClient(api_key=TAVILY_API_KEY)
-
-        response = client.search(
-            query=query, search_depth="advanced", max_results=max_results,
-            include_answer=False, include_raw_content=False,
-            topic=topic, days=7,
-            include_domains=get_active_domains(),
-        )
-        return response.get("results", [])
-    except Exception as e:
-        logger.warning(f"Tavily search failed for '{query}': {e}")
-        return []
 
 
 def _call_llm(prompt: str) -> str:
@@ -36,8 +16,8 @@ def _call_llm(prompt: str) -> str:
     if not IS_LLM_CONFIGURED:
         return ""
     try:
-        from config import create_llm
-        llm = create_llm(temperature=0.0)
+        from config import create_integration_llm
+        llm = create_integration_llm(temperature=0.0)
         return llm.call(messages=[{"role": "user", "content": prompt}])
     except Exception as e:
         logger.warning(f"LLM call failed: {e}")
@@ -105,8 +85,32 @@ def _translate_and_classify(news_items: list[dict]) -> list[dict]:
     return news_items
 
 
+def _domain_aware() -> bool:
+    from utils.search import _DOMAIN_AWARE_PROVIDERS
+    from utils.search_providers import get_search_provider
+    return get_search_provider() in _DOMAIN_AWARE_PROVIDERS
+
+
+def _search_cn_sources(query: str, max_results: int = 6) -> list[dict]:
+    """Search Chinese-language sources, domain-restricted when supported."""
+    from utils.search import CN_DOMAINS
+    from utils.search_providers import search as provider_search
+    domains = CN_DOMAINS if _domain_aware() else None
+    return provider_search(query=query, max_results=max_results, domains=domains,
+                           search_depth="advanced", topic="news", days=7)
+
+
+def _search_en_sources(query: str, max_results: int = 6) -> list[dict]:
+    """Search English-language / global sources, domain-restricted when supported."""
+    from utils.search import EN_DOMAINS
+    from utils.search_providers import search as provider_search
+    domains = EN_DOMAINS if _domain_aware() else None
+    return provider_search(query=query, max_results=max_results, domains=domains,
+                           search_depth="advanced", topic="news", days=7)
+
+
 def fetch_weekly_hot_news() -> dict:
-    """Fetch this week's hot news, categorized. Cached for 2 hours.
+    """Fetch this week's hot news, balanced CN/EN. Cached for 2 hours.
 
     Returns: {"china": [...], "global": [...]}
     """
@@ -116,75 +120,89 @@ def fetch_weekly_hot_news() -> dict:
             cache = json.loads(CACHE_FILE.read_text(encoding="utf-8"))
             cached_at = datetime.fromisoformat(cache.get("cached_at", "2000-01-01"))
             if (datetime.now() - cached_at).total_seconds() < 7200:
-                logger.info(f"Using cached weekly news")
+                logger.info("Using cached weekly news")
                 return {"china": cache.get("china", []), "global": cache.get("global", [])}
         except Exception:
             pass
 
-    seen = set()
-    all_items = []
+    today = datetime.now()
+    date_cn = f"{today.year}年{today.month}月"
+    date_en = today.strftime("%B %Y")
 
-    # ---- Search Chinese News (Chinese + English queries for broader coverage) ----
+    china_items = []
+    cn_seen = set()
+
     cn_queries = [
-        "中国 本周 热点新闻 争议 事件",
-        "今日 热搜 社会 争议 中国",
-        "China hot news controversy this week May 2026",
+        f"中国 本周 热点新闻 争议 {date_cn}",
+        f"今日 热搜 社会事件 {date_cn}",
+        "国内 头条 新闻 舆论 争议",
     ]
     for q in cn_queries:
-        for r in _tavily_search(q, max_results=6, topic="news"):
+        for r in _search_cn_sources(q, max_results=6):
             url = r.get("url", "")
-            if url and url not in seen:
-                seen.add(url)
-                all_items.append({
+            if url and url not in cn_seen:
+                cn_seen.add(url)
+                china_items.append({
                     "title": r.get("title", ""),
                     "content": r.get("content", "")[:200],
                     "url": url,
                     "source": r.get("source", ""),
+                    "region": "china",
                 })
 
-    # ---- Search Global News ----
+    logger.info(f"Weekly CN search: {len(china_items)} results from CN domains")
+
+    global_items = []
+    gl_seen = set()
+    # Don't reuse URLs already captured in CN search
+    gl_seen.update(cn_seen)
+
     global_queries = [
-        "world news controversy debate this week May 2026",
-        "global hot topics trending controversy 2026",
+        f"world news controversy debate this week {date_en}",
+        f"global hot topics trending controversy {today.year}",
     ]
     for q in global_queries:
-        for r in _tavily_search(q, max_results=6, topic="news"):
+        for r in _search_en_sources(q, max_results=6):
             url = r.get("url", "")
-            if url and url not in seen:
-                seen.add(url)
-                all_items.append({
+            if url and url not in gl_seen:
+                gl_seen.add(url)
+                global_items.append({
                     "title": r.get("title", ""),
                     "content": r.get("content", "")[:200],
                     "url": url,
                     "source": r.get("source", ""),
+                    "region": "global",
                 })
 
-    # ---- Translate & Classify ----
-    classified = _translate_and_classify(all_items)
+    logger.info(f"Weekly EN search: {len(global_items)} results from EN domains")
 
-    china_news = [item for item in classified if item.get("region") == "china"]
-    global_news = [item for item in classified if item.get("region") != "china"]
+    # ---- Translate & Classify (CN titles to Chinese, EN titles to Chinese) ----
+    china_items = _translate_and_classify(china_items)
+    global_items = _translate_and_classify(global_items)
 
     # Sort by controversy level
     controversy_order = {"high": 0, "medium": 1, "low": 2}
-    china_news.sort(key=lambda x: (controversy_order.get(x.get("controversy", "medium"), 1), -len(x.get("content", ""))))
-    global_news.sort(key=lambda x: (controversy_order.get(x.get("controversy", "medium"), 1), -len(x.get("content", ""))))
+    china_items.sort(key=lambda x: (controversy_order.get(x.get("controversy", "medium"), 1), -len(x.get("content", ""))))
+    global_items.sort(key=lambda x: (controversy_order.get(x.get("controversy", "medium"), 1), -len(x.get("content", ""))))
 
     # Top 6 each
-    china_news = china_news[:6]
-    global_news = global_news[:6]
+    china_items = china_items[:6]
+    global_items = global_items[:6]
 
-    logger.info(f"Weekly news: {len(china_news)} CN, {len(global_news)} global")
+    # If one side has fewer than 3, pad from the other side's overflow
+    # (but only if the other side has results to spare)
+
+    logger.info(f"Weekly news final: {len(china_items)} CN, {len(global_items)} global")
 
     # Cache
     CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
     CACHE_FILE.write_text(json.dumps({
         "cached_at": datetime.now().isoformat(),
-        "china": china_news,
-        "global": global_news,
+        "china": china_items,
+        "global": global_items,
     }, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    return {"china": china_news, "global": global_news}
+    return {"china": china_items, "global": global_items}
 
 
 def get_fallback_weekly_news() -> dict:
