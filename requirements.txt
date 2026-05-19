@@ -1,0 +1,18 @@
+# Vision Lens (AI资讯透视镜) — Dependencies
+# Core
+streamlit>=1.32.0
+crewai>=0.30.0
+pydantic>=2.6.0
+
+# LLM — CrewAI handles LLM integration natively; anthropic SDK is pulled in as a dependency
+anthropic>=0.25.0
+
+# Web Search (optional — app works with mock data without this)
+tavily-python>=0.3.0
+
+# UI Enhancements
+plotly>=5.18.0
+
+# Utilities
+python-dotenv>=1.0.0
+loguru>=0.7.0

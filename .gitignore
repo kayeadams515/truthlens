@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.env
+logs/
+*.log
+.streamlit/
+.DS_Store
+.claude/
+data/reports/
+data/weekly_news_cache.json
