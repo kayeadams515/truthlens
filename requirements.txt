@@ -7,8 +7,11 @@ pydantic>=2.6.0
 # LLM — CrewAI handles LLM integration natively; anthropic SDK is pulled in as a dependency
 anthropic>=0.25.0
 
-# Web Search (optional — app works with mock data without this)
+# Web Search
 tavily-python>=0.3.0
+
+# Packaging (for single-executable builds)
+pyinstaller>=6.0.0
 
 # UI Enhancements
 plotly>=5.18.0
