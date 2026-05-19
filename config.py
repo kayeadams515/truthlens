@@ -37,6 +37,15 @@ else:  # anthropic
 IS_LLM_CONFIGURED = bool(LLM_API_KEY)
 
 
+def create_llm(temperature: float = 0.1):
+    """Create a CrewAI LLM instance from current config. Single factory for all LLM calls."""
+    from crewai import LLM
+    kwargs = dict(model=LLM_MODEL, api_key=LLM_API_KEY, temperature=temperature)
+    if LLM_BASE_URL:
+        kwargs["base_url"] = LLM_BASE_URL
+    return LLM(**kwargs)
+
+
 def get_active_domains() -> list[str] | None:
     """Return active search domains, or None for unrestricted.
     Reads from Streamlit session state if available, else returns defaults.

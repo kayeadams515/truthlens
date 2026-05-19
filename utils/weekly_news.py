@@ -36,12 +36,8 @@ def _call_llm(prompt: str) -> str:
     if not IS_LLM_CONFIGURED:
         return ""
     try:
-        from crewai import LLM
-        from config import LLM_MODEL, LLM_API_KEY, LLM_BASE_URL
-        kwargs = dict(model=LLM_MODEL, api_key=LLM_API_KEY, temperature=0.0)
-        if LLM_BASE_URL:
-            kwargs["base_url"] = LLM_BASE_URL
-        llm = LLM(**kwargs)
+        from config import create_llm
+        llm = create_llm(temperature=0.0)
         return llm.call(messages=[{"role": "user", "content": prompt}])
     except Exception as e:
         logger.warning(f"LLM call failed: {e}")

@@ -2,6 +2,7 @@
 
 import streamlit as st
 
+from utils.logger import logger
 from utils.persistence import load_reports
 from utils.weekly_news import fetch_weekly_hot_news, get_fallback_weekly_news
 

@@ -246,12 +246,8 @@ def _filter_relevant(topic: str, results: list[dict]) -> list[dict]:
     if not results:
         return results
     try:
-        from crewai import LLM
-        from config import LLM_MODEL, LLM_API_KEY, LLM_BASE_URL
-        kwargs = dict(model=LLM_MODEL, api_key=LLM_API_KEY, temperature=0.0)
-        if LLM_BASE_URL:
-            kwargs["base_url"] = LLM_BASE_URL
-        llm = LLM(**kwargs)
+        from config import create_llm
+        llm = create_llm(temperature=0.0)
 
         items = "\n".join(
             f"{i+1}. {r.get('title', '')} | {r.get('content', '')[:100]}"
@@ -313,12 +309,8 @@ def _show_search_candidates(results: list[dict]):
 def _summarize_info(topic: str, search_results: list[dict]) -> str:
     if IS_LLM_CONFIGURED and search_results:
         try:
-            from crewai import LLM
-            from config import LLM_MODEL, LLM_API_KEY, LLM_BASE_URL
-            kwargs = dict(model=LLM_MODEL, api_key=LLM_API_KEY, temperature=0.1)
-            if LLM_BASE_URL:
-                kwargs["base_url"] = LLM_BASE_URL
-            llm = LLM(**kwargs)
+            from config import create_llm
+            llm = create_llm(temperature=0.1)
 
             sources_text = "\n\n---\n\n".join(
                 f"来源{i+1}: {r.get('source', '')}\n标题: {r.get('title', '')}\n内容: {r.get('content', '')[:500]}"
@@ -530,12 +522,8 @@ def _answer_followup(topic: str, report: str, question: str, mode: str,
 def _should_search(topic: str, report: str, question: str) -> bool:
     """Use LLM to decide if the question needs external search."""
     try:
-        from crewai import LLM
-        from config import LLM_MODEL, LLM_API_KEY, LLM_BASE_URL
-        kwargs = dict(model=LLM_MODEL, api_key=LLM_API_KEY, temperature=0.0)
-        if LLM_BASE_URL:
-            kwargs["base_url"] = LLM_BASE_URL
-        llm = LLM(**kwargs)
+        from config import create_llm
+        llm = create_llm(temperature=0.0)
 
         prompt = f"""你是一个判断助手。用户刚读了关于「{topic}」的报告，现在有一个追问。
 
@@ -585,12 +573,8 @@ def _generate_answer(topic: str, report: str, question: str,
                      additional_context: str, did_search: bool) -> str:
     """Generate the final answer."""
     try:
-        from crewai import LLM
-        from config import LLM_MODEL, LLM_API_KEY, LLM_BASE_URL
-        kwargs = dict(model=LLM_MODEL, api_key=LLM_API_KEY, temperature=0.3)
-        if LLM_BASE_URL:
-            kwargs["base_url"] = LLM_BASE_URL
-        llm = LLM(**kwargs)
+        from config import create_llm
+        llm = create_llm(temperature=0.3)
 
         search_note = ""
         if did_search:
@@ -663,12 +647,8 @@ def _disambiguate_topic(topic: str) -> str | None:
     # Only run LLM check when results are clearly divergent
     titles = "\n".join(f"{i+1}. {r.get('title', '')}" for i, r in enumerate(results))
     try:
-        from crewai import LLM
-        from config import LLM_MODEL, LLM_API_KEY, LLM_BASE_URL
-        kwargs = dict(model=LLM_MODEL, api_key=LLM_API_KEY, temperature=0.0)
-        if LLM_BASE_URL:
-            kwargs["base_url"] = LLM_BASE_URL
-        llm = LLM(**kwargs)
+        from config import create_llm
+        llm = create_llm(temperature=0.0)
 
         decision = llm.call(messages=[{"role": "user", "content": f"""用户搜索关键词：「{topic}」
 
