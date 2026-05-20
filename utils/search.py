@@ -13,8 +13,8 @@ EN_DOMAINS = [
     "nytimes.com", "theguardian.com", "washingtonpost.com",
 ]
 
-# Providers whose API supports domain filtering natively
-_DOMAIN_AWARE_PROVIDERS = {"tavily", "brave"}
+# Providers whose API supports domain filtering (Tavily natively, Brave/SerpAPI via site:)
+_DOMAIN_AWARE_PROVIDERS = {"tavily", "brave", "serpapi"}
 
 
 def _provider_supports_domains() -> bool:

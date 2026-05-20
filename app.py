@@ -27,7 +27,7 @@ def _load_settings() -> dict:
 
 
 def _save_settings():
-    """Persist current LLM, search provider, and domain settings to disk."""
+    """Persist current LLM, search provider, domain settings, and provider cache to disk."""
     payload = {}
     for prefix in ["search_llm", "integration_llm"]:
         payload[prefix] = {
@@ -39,6 +39,7 @@ def _save_settings():
         payload[key] = st.session_state.get(key, "")
     payload["search_domains"] = st.session_state.get("search_domains", {})
     payload["search_unrestricted"] = st.session_state.get("search_unrestricted", False)
+    payload["llm_config_cache"] = st.session_state.get("llm_config_cache", {})
     SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
     SETTINGS_FILE.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -79,6 +80,14 @@ def main():
     for key in ("tavily_api_key", "brave_api_key", "serpapi_api_key", "searxng_base_url"):
         if key not in st.session_state:
             st.session_state[key] = saved.get(key, "") or os.environ.get(key.upper(), "")
+    # Provider config cache: persist per-provider settings so switching back restores keys
+    if "llm_config_cache" not in st.session_state:
+        st.session_state.llm_config_cache = saved.get("llm_config_cache", {})
+    # Test result cache: None = untested, True = ok, str = error message
+    if "llm_test_results" not in st.session_state:
+        st.session_state.llm_test_results = {
+            "search_llm": None, "integration_llm": None, "search": None,
+        }
 
     # ---- Theme ----
     apply_theme()
@@ -109,25 +118,33 @@ def main():
 
         from config import is_search_llm_configured, is_integration_llm_configured
         from utils.search_providers import PROVIDERS as SEARCH_PROVIDERS, get_search_provider
-        provider_names = {"deepseek": "DeepSeek", "anthropic": "Claude", "openai": "OpenAI"}
 
         def _model_info(prefix: str) -> str:
             provider = st.session_state.get(f"{prefix}_provider", "deepseek")
             model = st.session_state.get(f"{prefix}_model", "")
             model_short = model.split("/")[-1] if "/" in model else model
-            return f"{provider_names.get(provider, provider)} / {model_short}"
+            return f"{PROVIDER_LABELS.get(provider, provider)} / {model_short}"
 
-        llm1_ok = "✅" if is_search_llm_configured() else "⚠️"
-        llm2_ok = "✅" if is_integration_llm_configured() else "⚠️"
+        def _status_icon(prefix: str) -> str:
+            result = st.session_state.get("llm_test_results", {}).get(prefix)
+            if result is None:
+                configured = (is_search_llm_configured() if prefix == "search_llm"
+                             else is_integration_llm_configured() if prefix == "integration_llm"
+                             else bool(st.session_state.get("search_provider")))
+                return "⬜" if configured else "⚠️"
+            if result is True:
+                return "✅"
+            return "❌"
+
         search_provider_key = get_search_provider()
         search_display = SEARCH_PROVIDERS.get(search_provider_key, search_provider_key)
 
         st.markdown(f"""
         <div style="font-size:13px; opacity:0.7; line-height:2;">
             <b>引擎：</b>4-Agent CrewAI 辩论<br>
-            <b>情报 LLM：</b>{_model_info("search_llm")} {llm1_ok}<br>
-            <b>分析 LLM：</b>{_model_info("integration_llm")} {llm2_ok}<br>
-            <b>搜索：</b>{search_display}
+            <b>情报 LLM：</b>{_model_info("search_llm")} {_status_icon("search_llm")}<br>
+            <b>分析 LLM：</b>{_model_info("integration_llm")} {_status_icon("integration_llm")}<br>
+            <b>搜索：</b>{search_display} {_status_icon("search")}
         </div>
         """, unsafe_allow_html=True)
         st.divider()
@@ -153,16 +170,117 @@ def main():
         _render_settings()
 
 
-PROVIDER_OPTIONS = ["deepseek", "anthropic", "openai"]
-PROVIDER_LABELS = {"deepseek": "DeepSeek", "anthropic": "Claude", "openai": "OpenAI"}
+PROVIDER_OPTIONS = ["deepseek", "anthropic", "openai", "google", "moonshot", "zhipu", "qwen", "mistral", "xai"]
+PROVIDER_LABELS = {
+    "deepseek":  "DeepSeek",
+    "anthropic": "Claude",
+    "openai":    "OpenAI",
+    "google":    "Google Gemini",
+    "moonshot":  "Moonshot (月之暗面)",
+    "zhipu":     "智谱 GLM",
+    "qwen":      "通义千问",
+    "mistral":   "Mistral AI",
+    "xai":       "xAI Grok",
+}
+PROVIDER_DEFAULTS = {
+    "deepseek":  {"model": "deepseek/deepseek-chat",           "base_url": "https://api.deepseek.com"},
+    "anthropic": {"model": "anthropic/claude-sonnet-4-6",       "base_url": "https://api.anthropic.com"},
+    "openai":    {"model": "openai/gpt-4o",                    "base_url": "https://api.openai.com/v1"},
+    "google":    {"model": "gemini-2.5-flash",                 "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/"},
+    "moonshot":  {"model": "moonshot-v1-8k",                   "base_url": "https://api.moonshot.cn/v1"},
+    "zhipu":     {"model": "glm-4-plus",                       "base_url": "https://open.bigmodel.cn/api/paas/v4"},
+    "qwen":      {"model": "qwen-max",                         "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1"},
+    "mistral":   {"model": "mistral/mistral-large-latest",      "base_url": "https://api.mistral.ai/v1"},
+    "xai":       {"model": "grok-3-beta",                      "base_url": "https://api.x.ai/v1"},
+}
+PROVIDER_MODELS = {
+    "deepseek": [
+        "deepseek/deepseek-chat",
+        "deepseek/deepseek-reasoner",
+    ],
+    "anthropic": [
+        "anthropic/claude-sonnet-4-6",
+        "anthropic/claude-opus-4-7",
+        "anthropic/claude-haiku-4-5-20251001",
+        "anthropic/claude-sonnet-4-5",
+    ],
+    "openai": [
+        "openai/gpt-4o",
+        "openai/gpt-4o-mini",
+        "openai/gpt-4.1",
+        "openai/o3",
+        "openai/o4-mini",
+    ],
+    "google": [
+        "gemini-2.5-flash",
+        "gemini-2.5-pro",
+    ],
+    "moonshot": [
+        "moonshot-v1-8k",
+        "moonshot-v1-32k",
+        "moonshot-v1-128k",
+    ],
+    "zhipu": [
+        "glm-4-plus",
+        "glm-4-flash",
+        "glm-4",
+    ],
+    "qwen": [
+        "qwen-max",
+        "qwen-plus",
+        "qwen-turbo",
+    ],
+    "mistral": [
+        "mistral/mistral-large-latest",
+        "mistral/mistral-medium-latest",
+        "mistral/mistral-small-latest",
+    ],
+    "xai": [
+        "grok-3-beta",
+        "grok-2",
+    ],
+}
+
+CUSTOM_MODEL_TOKEN = "✏️ 自定义模型..."
+
+
+def _test_llm_connection(prefix: str):
+    """Test LLM connectivity using CrewAI. Returns (ok: bool, message: str)."""
+    model = st.session_state.get(f"{prefix}_model", "")
+    api_key = st.session_state.get(f"{prefix}_api_key", "")
+    base_url = st.session_state.get(f"{prefix}_base_url", "")
+    if not api_key:
+        return False, "未配置 API Key"
+    try:
+        from crewai import LLM
+        kwargs = {"model": model, "api_key": api_key, "temperature": 0.0}
+        if base_url:
+            kwargs["base_url"] = base_url
+        if "/" not in model:
+            kwargs["provider"] = "openai"
+        llm = LLM(**kwargs)
+        resp = llm.call(messages=[{"role": "user", "content": "Say OK"}])
+        return (True, "可用") if resp else (False, "返回为空")
+    except Exception as e:
+        return False, str(e)[:120]
+
+
+def _test_search_connection():
+    """Test search provider. Returns (ok: bool, message: str)."""
+    try:
+        from utils.search_providers import search
+        results = search(query="test", max_results=1, search_depth="basic", topic="news", days=1)
+        return (True, "可用") if results else (False, "搜索无结果")
+    except Exception as e:
+        return False, str(e)[:120]
 
 
 def _render_llm_config_section(prefix: str, label: str):
     """Render provider/model/api_key inputs for one LLM slot."""
     st.caption(f"配置 {label} 使用的 LLM")
 
-    prev_provider = st.session_state.get(f"{prefix}_provider", "deepseek")
-    provider_idx = PROVIDER_OPTIONS.index(prev_provider) if prev_provider in PROVIDER_OPTIONS else 0
+    current_provider = st.session_state.get(f"{prefix}_provider", "deepseek")
+    provider_idx = PROVIDER_OPTIONS.index(current_provider) if current_provider in PROVIDER_OPTIONS else 0
     provider = st.selectbox(
         "提供商",
         PROVIDER_OPTIONS,
@@ -170,15 +288,68 @@ def _render_llm_config_section(prefix: str, label: str):
         format_func=lambda x: PROVIDER_LABELS.get(x, x),
         key=f"settings_{prefix}_provider",
     )
-    st.session_state[f"{prefix}_provider"] = provider
 
-    model_val = st.text_input(
-        "模型名称",
-        value=st.session_state.get(f"{prefix}_model", ""),
-        key=f"settings_{prefix}_model",
-        placeholder="例如: deepseek-chat 或 claude-sonnet-4-6",
+    # When provider changes: cache old config, restore new from cache or use defaults
+    if provider != current_provider:
+        cache = st.session_state.get("llm_config_cache", {})
+        # Save current provider's config to cache
+        cache.setdefault(prefix, {})[current_provider] = {
+            "model": st.session_state.get(f"{prefix}_model", ""),
+            "api_key": st.session_state.get(f"{prefix}_api_key", ""),
+            "base_url": st.session_state.get(f"{prefix}_base_url", ""),
+        }
+        # Restore new provider's config from cache, or use defaults
+        cached = cache.get(prefix, {}).get(provider)
+        if cached and cached.get("api_key"):
+            new_model, new_url, new_key = cached["model"], cached["base_url"], cached["api_key"]
+        else:
+            defs = PROVIDER_DEFAULTS.get(provider, {})
+            new_model, new_url, new_key = defs.get("model", ""), defs.get("base_url", ""), ""
+        st.session_state["llm_config_cache"] = cache
+        st.session_state[f"{prefix}_provider"] = provider
+        st.session_state[f"{prefix}_model"] = new_model
+        st.session_state[f"{prefix}_base_url"] = new_url
+        st.session_state[f"{prefix}_api_key"] = new_key
+        # Reset test result when provider changes
+        st.session_state.setdefault("llm_test_results", {})[prefix] = None
+        # Explicitly set widget keys so widgets render with new values
+        st.session_state[f"settings_{prefix}_model_select"] = new_model
+        st.session_state[f"settings_{prefix}_model_custom"] = ""
+        st.session_state[f"settings_{prefix}_api_key"] = new_key
+        st.session_state[f"settings_{prefix}_base_url"] = new_url
+
+    st.session_state[f"{prefix}_provider"] = provider
+    defaults = PROVIDER_DEFAULTS.get(provider, {})
+    preset_models = PROVIDER_MODELS.get(provider, [])
+    current_model = st.session_state.get(f"{prefix}_model", "")
+
+    # Model: selectbox with presets + custom option
+    is_custom = bool(current_model) and current_model not in preset_models
+    select_options = preset_models + [CUSTOM_MODEL_TOKEN]
+    if is_custom:
+        select_idx = len(preset_models)
+    elif current_model in preset_models:
+        select_idx = preset_models.index(current_model)
+    else:
+        select_idx = 0
+
+    selected = st.selectbox(
+        "模型",
+        select_options,
+        index=select_idx,
+        key=f"settings_{prefix}_model_select",
     )
-    st.session_state[f"{prefix}_model"] = model_val
+
+    if selected == CUSTOM_MODEL_TOKEN:
+        custom_val = st.text_input(
+            "自定义模型名称",
+            value=current_model if is_custom else "",
+            key=f"settings_{prefix}_model_custom",
+            placeholder="输入模型 ID，如 claude-sonnet-4-6",
+        )
+        st.session_state[f"{prefix}_model"] = custom_val
+    else:
+        st.session_state[f"{prefix}_model"] = selected
 
     api_key_val = st.text_input(
         "API Key",
@@ -193,7 +364,7 @@ def _render_llm_config_section(prefix: str, label: str):
         "Base URL（可选）",
         value=st.session_state.get(f"{prefix}_base_url", ""),
         key=f"settings_{prefix}_base_url",
-        placeholder="留空则使用默认地址",
+        placeholder=defaults.get("base_url", "留空则使用默认地址"),
     )
     st.session_state[f"{prefix}_base_url"] = base_url_val
 
@@ -276,7 +447,7 @@ def _settings_dialog():
         st.divider()
 
         # -- Domain filter --
-        st.caption("域名过滤（仅 Tavily 和 Brave 支持按域名搜索）")
+        st.caption("域名过滤（Tavily / Brave / SerpAPI 支持按域名搜索，DDGS / SearXNG 不支持）")
 
         unrestricted = st.checkbox(
             "全量搜索（不限制域名）",
@@ -327,25 +498,72 @@ def _settings_dialog():
             st.session_state.search_unrestricted = False
             st.rerun()
 
+        st.divider()
+        col_st, col_ss = st.columns([1, 2])
+        with col_st:
+            if st.button("🧪 测试搜索", key="test_search", use_container_width=True):
+                with st.spinner("正在测试搜索连接..."):
+                    ok, msg = _test_search_connection()
+                    st.session_state.llm_test_results["search"] = True if ok else msg
+        with col_ss:
+            _show_test_result("search")
+
     # ---- Tab 2: Scout LLM ----
     with tab_scout:
         st.caption("情报 LLM 用于情报官 (Scout) Agent 的信息搜集、相关性过滤与话题消歧。")
         _render_llm_config_section("search_llm", "情报")
+        st.divider()
+        col_test1, col_status1 = st.columns([1, 2])
+        with col_test1:
+            if st.button("🧪 测试连接", key="test_search_llm", use_container_width=True):
+                with st.spinner("正在测试情报 LLM 连接..."):
+                    ok, msg = _test_llm_connection("search_llm")
+                    st.session_state.llm_test_results["search_llm"] = True if ok else msg
+        with col_status1:
+            _show_test_result("search_llm")
 
     # ---- Tab 3: Integration LLM ----
     with tab_integ:
         st.caption("分析 LLM 用于审核员、法官、撰稿人 Agent 以及资讯梳理、追问回答。")
         _render_llm_config_section("integration_llm", "分析")
+        st.divider()
+        col_test2, col_status2 = st.columns([1, 2])
+        with col_test2:
+            if st.button("🧪 测试连接", key="test_integration_llm", use_container_width=True):
+                with st.spinner("正在测试分析 LLM 连接..."):
+                    ok, msg = _test_llm_connection("integration_llm")
+                    st.session_state.llm_test_results["integration_llm"] = True if ok else msg
+        with col_status2:
+            _show_test_result("integration_llm")
 
-    # ---- Save ----
+    # ---- Save + Test All ----
     st.divider()
-    col_save, col_hint = st.columns([1, 3])
+    col_test_all, col_save, col_hint = st.columns([1, 1, 3])
+    with col_test_all:
+        if st.button("🧪 测试全部", key="test_all", use_container_width=True):
+            with st.spinner("正在测试全部连接..."):
+                for pfx in ("search_llm", "integration_llm"):
+                    ok, msg = _test_llm_connection(pfx)
+                    st.session_state.llm_test_results[pfx] = True if ok else msg
+                ok_s, msg_s = _test_search_connection()
+                st.session_state.llm_test_results["search"] = True if ok_s else msg_s
     with col_save:
         if st.button("💾 保存设置", use_container_width=True, type="primary", key="settings_save"):
             _save_settings()
             st.success("设置已保存", icon="✅")
     with col_hint:
-        st.caption("设置保存后将持久化，下次启动时自动加载。未保存的改动在刷新后丢失。")
+        st.caption("切换厂商时自动缓存已配置的 API Key / URL，切回无需重输。")
+
+
+def _show_test_result(key: str):
+    """Display a compact test result indicator."""
+    result = st.session_state.get("llm_test_results", {}).get(key)
+    if result is None:
+        st.caption("⬜ 未测试")
+    elif result is True:
+        st.success("✅ 连接可用")
+    else:
+        st.error(f"❌ {result}")
 
 
 def _render_settings():

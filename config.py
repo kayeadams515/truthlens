@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # --- LLM Provider ---
-# Supported: "anthropic", "deepseek", "openai"
+# Supported: "deepseek", "anthropic", "openai", "google", "moonshot", "zhipu", "qwen", "mistral", "xai"
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "deepseek").lower()
 
 # Anthropic
@@ -20,19 +20,37 @@ DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
 
+# --- Provider config mapping ---
+_PROVIDER_CONFIG = {
+    "deepseek":  {"model": "deepseek/deepseek-chat",           "base_url": "https://api.deepseek.com"},
+    "anthropic": {"model": "anthropic/claude-sonnet-4-6",       "base_url": "https://api.anthropic.com"},
+    "openai":    {"model": "openai/gpt-4o",                    "base_url": "https://api.openai.com/v1"},
+    "google":    {"model": "gemini-2.5-flash",                 "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/"},
+    "moonshot":  {"model": "moonshot-v1-8k",                   "base_url": "https://api.moonshot.cn/v1"},
+    "zhipu":     {"model": "glm-4-plus",                       "base_url": "https://open.bigmodel.cn/api/paas/v4"},
+    "qwen":      {"model": "qwen-max",                         "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1"},
+    "mistral":   {"model": "mistral/mistral-large-latest",      "base_url": "https://api.mistral.ai/v1"},
+    "xai":       {"model": "grok-3-beta",                      "base_url": "https://api.x.ai/v1"},
+}
+
 # --- LLM Configuration (derived) ---
-if LLM_PROVIDER == "deepseek":
-    LLM_MODEL = os.getenv("LLM_MODEL", f"deepseek/{DEEPSEEK_MODEL}")
-    LLM_API_KEY = DEEPSEEK_API_KEY
-    LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.deepseek.com")
-elif LLM_PROVIDER == "openai":
-    LLM_MODEL = os.getenv("LLM_MODEL", f"openai/{OPENAI_MODEL}")
-    LLM_API_KEY = OPENAI_API_KEY
-    LLM_BASE_URL = os.getenv("LLM_BASE_URL", "")
-else:  # anthropic
-    LLM_MODEL = os.getenv("LLM_MODEL", f"anthropic/claude-sonnet-4-6")
-    LLM_API_KEY = ANTHROPIC_API_KEY
-    LLM_BASE_URL = os.getenv("LLM_BASE_URL", "")
+LLM_API_KEY = os.getenv("LLM_API_KEY", "")
+LLM_MODEL = os.getenv("LLM_MODEL", "")
+LLM_BASE_URL = os.getenv("LLM_BASE_URL", "")
+
+if LLM_PROVIDER in _PROVIDER_CONFIG:
+    cfg = _PROVIDER_CONFIG[LLM_PROVIDER]
+    LLM_MODEL = LLM_MODEL or cfg["model"]
+    LLM_BASE_URL = LLM_BASE_URL or cfg["base_url"]
+
+# Per-provider API key fallback
+if not LLM_API_KEY:
+    if LLM_PROVIDER == "deepseek":
+        LLM_API_KEY = DEEPSEEK_API_KEY
+    elif LLM_PROVIDER == "openai":
+        LLM_API_KEY = OPENAI_API_KEY
+    elif LLM_PROVIDER == "anthropic":
+        LLM_API_KEY = ANTHROPIC_API_KEY
 
 IS_LLM_CONFIGURED = bool(LLM_API_KEY)
 
@@ -47,10 +65,14 @@ def _get_llm_config(session_key_prefix: str) -> dict:
             api_key = st.session_state.get(f"{session_key_prefix}_api_key", "")
             base_url = st.session_state.get(f"{session_key_prefix}_base_url", "")
             if model and api_key:
-                return {"model": model, "api_key": api_key, "base_url": base_url}
+                # If model has no provider prefix, force openai provider for custom endpoints
+                llm_provider = None if "/" in model else "openai"
+                return {"model": model, "api_key": api_key, "base_url": base_url, "llm_provider": llm_provider}
     except Exception:
         pass
-    return {"model": LLM_MODEL, "api_key": LLM_API_KEY, "base_url": LLM_BASE_URL}
+    # Fallback: detect provider from env model format
+    env_provider = None if "/" in LLM_MODEL else "openai"
+    return {"model": LLM_MODEL, "api_key": LLM_API_KEY, "base_url": LLM_BASE_URL, "llm_provider": env_provider}
 
 
 def create_llm(temperature: float = 0.1):
@@ -69,6 +91,8 @@ def create_search_llm(temperature: float = 0.1):
     kwargs = dict(model=cfg["model"], api_key=cfg["api_key"], temperature=temperature)
     if cfg["base_url"]:
         kwargs["base_url"] = cfg["base_url"]
+    if cfg.get("llm_provider"):
+        kwargs["provider"] = cfg["llm_provider"]
     return LLM(**kwargs)
 
 
@@ -79,6 +103,8 @@ def create_integration_llm(temperature: float = 0.1):
     kwargs = dict(model=cfg["model"], api_key=cfg["api_key"], temperature=temperature)
     if cfg["base_url"]:
         kwargs["base_url"] = cfg["base_url"]
+    if cfg.get("llm_provider"):
+        kwargs["provider"] = cfg["llm_provider"]
     return LLM(**kwargs)
 
 

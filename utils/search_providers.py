@@ -82,6 +82,10 @@ def _search_brave(query: str, cfg: dict, max_results: int = 10,
     if not api_key:
         logger.warning("Brave Search API key not configured")
         return []
+    # Brave supports site: operator in query for domain filtering
+    if domains:
+        site_filter = " OR ".join(f"site:{d}" for d in domains)
+        query = f"{query} ({site_filter})"
     headers = {"Accept": "application/json", "Accept-Encoding": "gzip",
                "X-Subscription-Token": api_key}
     params = {"q": query, "count": min(max_results, 20)}
@@ -111,6 +115,10 @@ def _search_serpapi(query: str, cfg: dict, max_results: int = 10,
     if not api_key:
         logger.warning("SerpAPI key not configured")
         return []
+    # SerpAPI passes query through to Google, which supports site: operator
+    if domains:
+        site_filter = " OR ".join(f"site:{d}" for d in domains)
+        query = f"{query} ({site_filter})"
     params = {"q": query, "api_key": api_key, "engine": "google", "num": max_results}
     try:
         resp = requests.get("https://serpapi.com/search", params=params, timeout=10)
