@@ -3,7 +3,7 @@
 import streamlit as st
 from datetime import datetime
 
-from config import IS_LLM_CONFIGURED
+from config import is_any_llm_configured
 from utils.logger import logger
 
 
@@ -15,7 +15,7 @@ def render_instant():
     </div>
     """, unsafe_allow_html=True)
 
-    if not IS_LLM_CONFIGURED:
+    if not is_any_llm_configured():
         st.warning("⚠️ 未配置 LLM API Key，将使用模拟演示模式。")
 
     # Get topic and mode from session state
@@ -92,7 +92,7 @@ def _run_controversy_mode(topic: str):
 
     start_time = datetime.now()
 
-    if not IS_LLM_CONFIGURED:
+    if not is_any_llm_configured():
         st.error("⚠️ 未配置 LLM API Key，无法运行争议分析。请在 .env 文件中配置 API Key。")
         return
 
@@ -136,7 +136,7 @@ def _run_info_mode(topic: str):
 
     # Filter irrelevant results
     original_results = list(search_results)
-    if IS_LLM_CONFIGURED and len(search_results) > 3:
+    if is_any_llm_configured() and len(search_results) > 3:
         with st.spinner("🔍 正在筛选与事件相关的信息来源..."):
             search_results = _filter_relevant(topic, search_results)
 
@@ -168,7 +168,7 @@ def _display_controversy_report(topic: str, report: str):
     provider_names = {"deepseek": "DeepSeek", "anthropic": "Claude", "openai": "OpenAI"}
     provider_display = provider_names.get(LLM_PROVIDER, LLM_PROVIDER)
     model_display = LLM_MODEL.split("/")[-1] if "/" in LLM_MODEL else LLM_MODEL
-    mode_label = "Live AI" if IS_LLM_CONFIGURED else "模拟演示"
+    mode_label = "Live AI" if is_any_llm_configured() else "模拟演示"
     st.markdown(f"""
     <div style="text-align:right; opacity:0.5; font-size:12px; margin-bottom:16px;">
         {elapsed_str} | {provider_display} {model_display} | {mode_label}
@@ -300,7 +300,7 @@ def _show_search_candidates(results: list[dict]):
 
 
 def _summarize_info(topic: str, search_results: list[dict]) -> str:
-    if IS_LLM_CONFIGURED and search_results:
+    if is_any_llm_configured() and search_results:
         try:
             from config import create_integration_llm
             llm = create_integration_llm(temperature=0.1)
@@ -500,7 +500,7 @@ def _render_followup_qa(topic: str, report_content: str, mode: str):
 def _answer_followup(topic: str, report: str, question: str, mode: str,
                      need_search: bool = False) -> str:
     """Answer a follow-up question. Intelligently triggers search only when needed."""
-    if not IS_LLM_CONFIGURED:
+    if not is_any_llm_configured():
         return "⚠️ 未配置 LLM API Key，追问功能需要在 .env 中配置 API Key 后使用。"
 
     # Search if needed

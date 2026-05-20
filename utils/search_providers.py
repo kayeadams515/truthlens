@@ -26,10 +26,6 @@ def _get_provider_config() -> dict:
             cfg[key] = st.session_state.get(key, "")
     except Exception:
         pass
-    # Fallback to env for API keys
-    import os
-    if not cfg.get("tavily_api_key"):
-        cfg["tavily_api_key"] = os.getenv("TAVILY_API_KEY", "")
     return cfg
 
 

@@ -60,20 +60,19 @@ def main():
         st.session_state.analyze_topic = ""
     if "weekly_news_loaded" not in st.session_state:
         st.session_state.weekly_news_loaded = False
-    from config import DEFAULT_SEARCH_DOMAINS
+    from config import DEFAULT_SEARCH_DOMAINS, is_any_llm_configured
     if "search_domains" not in st.session_state:
         st.session_state.search_domains = dict(DEFAULT_SEARCH_DOMAINS)
     if "search_unrestricted" not in st.session_state:
         st.session_state.search_unrestricted = False
-    from config import LLM_PROVIDER, LLM_MODEL, LLM_API_KEY, LLM_BASE_URL
     saved = _load_settings()
     for prefix in ["search_llm", "integration_llm"]:
         if f"{prefix}_provider" not in st.session_state:
             saved_cfg = saved.get(prefix, {})
-            st.session_state[f"{prefix}_provider"] = saved_cfg.get("provider") or LLM_PROVIDER
-            st.session_state[f"{prefix}_model"] = saved_cfg.get("model") or LLM_MODEL
-            st.session_state[f"{prefix}_api_key"] = saved_cfg.get("api_key") or LLM_API_KEY
-            st.session_state[f"{prefix}_base_url"] = saved_cfg.get("base_url") or LLM_BASE_URL
+            st.session_state[f"{prefix}_provider"] = saved_cfg.get("provider", "deepseek")
+            st.session_state[f"{prefix}_model"] = saved_cfg.get("model", "deepseek/deepseek-chat")
+            st.session_state[f"{prefix}_api_key"] = saved_cfg.get("api_key", "")
+            st.session_state[f"{prefix}_base_url"] = saved_cfg.get("base_url", "https://api.deepseek.com")
     # Search provider
     if "search_provider" not in st.session_state:
         st.session_state.search_provider = saved.get("search_provider", "tavily")
@@ -88,6 +87,15 @@ def main():
         st.session_state.llm_test_results = {
             "search_llm": None, "integration_llm": None, "search": None,
         }
+
+    # ---- First-run onboarding ----
+    if "onboarding_skipped" not in st.session_state:
+        st.session_state.onboarding_skipped = False
+    opened_via_onboarding = st.session_state.pop("_onboarding_go_settings", False)
+    if opened_via_onboarding:
+        _settings_dialog()
+    elif not is_any_llm_configured() and not st.session_state.onboarding_skipped:
+        _onboarding_dialog()
 
     # ---- Theme ----
     apply_theme()
@@ -564,6 +572,34 @@ def _show_test_result(key: str):
         st.success("✅ 连接可用")
     else:
         st.error(f"❌ {result}")
+
+
+@st.dialog("👋 欢迎使用 AI资讯透视镜", width="large")
+def _onboarding_dialog():
+    """First-run dialog guiding user to configure LLM."""
+    st.markdown("""
+    ### 🎉 欢迎！开始之前请先配置 AI 模型
+
+    本工具使用 **4-Agent CrewAI 辩论引擎** 进行深度资讯分析，需要至少配置一个 LLM 才能工作。
+
+    **快速开始：**
+    1. 点击下方按钮打开设置
+    2. 在 **🔍 情报 LLM** 标签页选择厂商，填入 API Key
+    3. 点击 **💾 保存设置**
+    4. 点 **🧪 测试连接** 验证可用性
+
+    > 💡 **推荐**：DeepSeek 便宜且中文能力强；DuckDuckGo 搜索免费无需 Key。
+    > 所有配置保存在本地 `data/settings.json`，不会上传。
+    """)
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("⚙️ 打开设置", use_container_width=True, type="primary"):
+            st.session_state._onboarding_go_settings = True
+            st.rerun()
+    with col2:
+        if st.button("🔍 先看看（模拟演示）", use_container_width=True):
+            st.session_state.onboarding_skipped = True
+            st.rerun()
 
 
 def _render_settings():

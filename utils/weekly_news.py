@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from config import IS_LLM_CONFIGURED
+from config import is_any_llm_configured
 from utils.logger import logger
 
 CACHE_FILE = Path(__file__).parent.parent / "data" / "weekly_news_cache.json"
@@ -13,7 +13,7 @@ CACHE_FILE = Path(__file__).parent.parent / "data" / "weekly_news_cache.json"
 
 def _call_llm(prompt: str) -> str:
     """Quick single-call LLM for translation / classification."""
-    if not IS_LLM_CONFIGURED:
+    if not is_any_llm_configured():
         return ""
     try:
         from config import create_integration_llm
@@ -26,7 +26,7 @@ def _call_llm(prompt: str) -> str:
 
 def _translate_and_classify(news_items: list[dict]) -> list[dict]:
     """Use LLM to translate titles to Chinese and classify as CN/Global + controversy level."""
-    if not news_items or not IS_LLM_CONFIGURED:
+    if not news_items or not is_any_llm_configured():
         # Fallback: mark all as global
         for item in news_items:
             item["title_cn"] = item.get("title", "")
@@ -93,20 +93,22 @@ def _domain_aware() -> bool:
 
 def _search_cn_sources(query: str, max_results: int = 6) -> list[dict]:
     """Search Chinese-language sources, domain-restricted when supported."""
-    from utils.search import CN_DOMAINS
+    from utils.search import CN_DOMAINS, _filter_results
     from utils.search_providers import search as provider_search
     domains = CN_DOMAINS if _domain_aware() else None
-    return provider_search(query=query, max_results=max_results, domains=domains,
-                           search_depth="advanced", topic="news", days=7)
+    results = provider_search(query=query, max_results=max_results, domains=domains,
+                              search_depth="advanced", topic="news", days=7)
+    return _filter_results(results)
 
 
 def _search_en_sources(query: str, max_results: int = 6) -> list[dict]:
     """Search English-language / global sources, domain-restricted when supported."""
-    from utils.search import EN_DOMAINS
+    from utils.search import EN_DOMAINS, _filter_results
     from utils.search_providers import search as provider_search
     domains = EN_DOMAINS if _domain_aware() else None
-    return provider_search(query=query, max_results=max_results, domains=domains,
-                           search_depth="advanced", topic="news", days=7)
+    results = provider_search(query=query, max_results=max_results, domains=domains,
+                              search_depth="advanced", topic="news", days=7)
+    return _filter_results(results)
 
 
 def fetch_weekly_hot_news() -> dict:
