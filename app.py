@@ -63,6 +63,11 @@ def main():
     from config import DEFAULT_SEARCH_DOMAINS, is_any_llm_configured
     if "search_domains" not in st.session_state:
         st.session_state.search_domains = dict(DEFAULT_SEARCH_DOMAINS)
+    else:
+        # Merge in any new domains added since last save
+        for k, v in DEFAULT_SEARCH_DOMAINS.items():
+            if k not in st.session_state.search_domains:
+                st.session_state.search_domains[k] = v
     if "search_unrestricted" not in st.session_state:
         st.session_state.search_unrestricted = False
     saved = _load_settings()
@@ -119,7 +124,7 @@ def main():
         page_keys = ["feed", "instant"]
         current_idx = page_keys.index(st.session_state.current_page) if st.session_state.current_page in page_keys else 0
 
-        selected_label = st.radio("选择页面", page_labels, index=current_idx, label_visibility="collapsed")
+        selected_label = st.radio("选择页面", page_labels, index=current_idx, label_visibility="collapsed", key="nav_radio")
         st.session_state.current_page = page_keys[page_labels.index(selected_label)]
 
         st.divider()
@@ -172,10 +177,16 @@ def main():
     </div>
     """, unsafe_allow_html=True)
 
-    # ---- Settings (appended to sidebar) ----
+    # ---- Settings button (rendered in sidebar) ----
     with st.sidebar:
         st.divider()
-        _render_settings()
+        if st.button("⚙️ 设置", use_container_width=True):
+            st.session_state._trigger_settings = True
+            st.rerun()
+
+    # ---- Settings dialog (called at top level, NOT inside sidebar) ----
+    if st.session_state.pop("_trigger_settings", False):
+        _settings_dialog()
 
 
 PROVIDER_OPTIONS = ["deepseek", "anthropic", "openai", "google", "moonshot", "zhipu", "qwen", "mistral", "xai"]
@@ -278,7 +289,11 @@ def _test_search_connection():
     try:
         from utils.search_providers import search
         results = search(query="test", max_results=1, search_depth="basic", topic="news", days=1)
-        return (True, "可用") if results else (False, "搜索无结果")
+        if not results:
+            return False, "搜索无结果"
+        if results[0].get("error"):
+            return False, results[0]["error"][:120]
+        return True, "可用"
     except Exception as e:
         return False, str(e)[:120]
 
@@ -467,37 +482,38 @@ def _settings_dialog():
         if not unrestricted:
             domains = st.session_state.search_domains
 
+            cn_official = ["新华社", "人民日报", "央视网", "环球时报", "中国新闻网", "光明网"]
+            cn_portal  = ["知乎", "微博", "搜狐", "新浪", "网易", "腾讯", "澎湃新闻", "凤凰网", "观察者网", "财新"]
+            cn_social  = ["抖音", "小红书"]
+            en_media   = ["BBC", "CNN", "路透社", "美联社", "纽约时报", "卫报", "华盛顿邮报"]
+            en_social  = ["YouTube", "X(Twitter)", "Facebook", "Instagram", "Reddit", "TikTok"]
+
+            def _render_site_checkboxes(names: list[str]):
+                for name in names:
+                    domain = domains.get(name, "")
+                    checked = st.checkbox(
+                        f"{name}  ({domain})",
+                        value=(name in domains),
+                        key=f"settings_domain_{name}",
+                    )
+                    if not checked and name in domains:
+                        del domains[name]
+                    elif checked and name not in domains:
+                        domains[name] = DEFAULT_SEARCH_DOMAINS[name]
+
             col_cn, col_en = st.columns(2)
-            cn_sites = ["知乎", "微博", "搜狐", "新浪", "网易", "腾讯", "澎湃新闻", "凤凰网", "观察者网", "财新"]
-            en_sites = ["BBC", "CNN", "路透社", "美联社", "纽约时报", "卫报", "华盛顿邮报"]
-
             with col_cn:
-                st.caption("中文站点")
-                for name in cn_sites:
-                    domain = domains.get(name, "")
-                    checked = st.checkbox(
-                        f"{name}  ({domain})",
-                        value=(name in domains),
-                        key=f"settings_domain_{name}",
-                    )
-                    if not checked and name in domains:
-                        del domains[name]
-                    elif checked and name not in domains:
-                        domains[name] = DEFAULT_SEARCH_DOMAINS[name]
-
+                st.caption("🇨🇳 官方媒体")
+                _render_site_checkboxes(cn_official)
+                st.caption("🇨🇳 门户资讯")
+                _render_site_checkboxes(cn_portal)
+                st.caption("🇨🇳 社交平台")
+                _render_site_checkboxes(cn_social)
             with col_en:
-                st.caption("英文站点")
-                for name in en_sites:
-                    domain = domains.get(name, "")
-                    checked = st.checkbox(
-                        f"{name}  ({domain})",
-                        value=(name in domains),
-                        key=f"settings_domain_{name}",
-                    )
-                    if not checked and name in domains:
-                        del domains[name]
-                    elif checked and name not in domains:
-                        domains[name] = DEFAULT_SEARCH_DOMAINS[name]
+                st.caption("🌍 国际媒体")
+                _render_site_checkboxes(en_media)
+                st.caption("🌍 社交平台")
+                _render_site_checkboxes(en_social)
 
             st.caption(f"当前覆盖 {len(domains)} 个站点")
 
@@ -601,11 +617,6 @@ def _onboarding_dialog():
             st.session_state.onboarding_skipped = True
             st.rerun()
 
-
-def _render_settings():
-    """Render the settings button in the sidebar."""
-    if st.button("⚙️ 设置", use_container_width=True):
-        _settings_dialog()
 
 
 if __name__ == "__main__":

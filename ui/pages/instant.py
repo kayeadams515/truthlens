@@ -16,7 +16,7 @@ def render_instant():
     """, unsafe_allow_html=True)
 
     if not is_any_llm_configured():
-        st.warning("⚠️ 未配置 LLM API Key，将使用模拟演示模式。")
+        st.warning("⚠️ 未配置 LLM API Key，请在设置中配置后使用。搜索功能可独立使用。")
 
     # Get topic and mode from session state
     incoming_topic = st.session_state.pop("analyze_topic", "")
@@ -88,20 +88,33 @@ def _run_controversy_mode(topic: str):
         <strong>⚔️ 争议分析：</strong>{topic}
     </div>
     """, unsafe_allow_html=True)
-    st.info("⏳ 四个 AI Agent 正在辩论中（情报官→审核员→法官→撰稿人），预计 30-90 秒...")
-
-    start_time = datetime.now()
 
     if not is_any_llm_configured():
-        st.error("⚠️ 未配置 LLM API Key，无法运行争议分析。请在 .env 文件中配置 API Key。")
+        st.error("⚠️ 未配置 LLM API Key，无法运行争议分析。请在设置中配置 API Key。")
         return
 
-    report = _run_live_analysis(topic)
+    # Detailed status display
+    with st.status("⚔️ 4-Agent 辩论流水线启动中...", expanded=True) as status:
+        st.write("🔍 **情报官 (Scout)** — 正在从多源搜索中英文互联网信息...")
+        st.write("⏳ 预计耗时 30-90 秒，请耐心等待")
 
-    elapsed = (datetime.now() - start_time).total_seconds()
+        start_time = datetime.now()
+        report = _run_live_analysis(topic)
+        elapsed = (datetime.now() - start_time).total_seconds()
 
-    if report is None:
-        return
+        if report is None:
+            status.update(label="❌ 分析失败", state="error")
+            return
+
+        status.update(
+            label=f"✅ 4-Agent 辩论完成（耗时 {elapsed:.0f} 秒）",
+            state="complete",
+            expanded=False,
+        )
+        st.write(f"🔍 **情报官** — 完成多源信息搜集")
+        st.write(f"🧐 **审核员** — 完成交叉审查与利益关联分析")
+        st.write(f"⚖️ **法官** — 完成贝叶斯真相概率计算")
+        st.write(f"✍️ **撰稿人** — 完成结构化报告生成")
 
     # Cache for redisplay on Q&A rerun
     st.session_state.current_report = report
@@ -164,14 +177,13 @@ def _run_info_mode(topic: str):
 def _display_controversy_report(topic: str, report: str):
     """Display a controversy report with metadata."""
     elapsed_str = ""
-    from config import LLM_PROVIDER, LLM_MODEL
-    provider_names = {"deepseek": "DeepSeek", "anthropic": "Claude", "openai": "OpenAI"}
-    provider_display = provider_names.get(LLM_PROVIDER, LLM_PROVIDER)
-    model_display = LLM_MODEL.split("/")[-1] if "/" in LLM_MODEL else LLM_MODEL
-    mode_label = "Live AI" if is_any_llm_configured() else "模拟演示"
+    llm = st.session_state.get("integration_llm_provider", "")
+    model = st.session_state.get("integration_llm_model", "")
+    model_short = model.split("/")[-1] if "/" in model else model
+    mode_label = "Live AI" if is_any_llm_configured() else "未配置 LLM"
     st.markdown(f"""
     <div style="text-align:right; opacity:0.5; font-size:12px; margin-bottom:16px;">
-        {elapsed_str} | {provider_display} {model_display} | {mode_label}
+        {elapsed_str} | {model_short} | {mode_label}
     </div>
     """, unsafe_allow_html=True)
 
@@ -344,8 +356,7 @@ def _summarize_info(topic: str, search_results: list[dict]) -> str:
 def _run_live_analysis(topic: str) -> str | None:
     try:
         from agents.crew import run_analysis
-        with st.spinner("AI Agents 正在协同分析中..."):
-            report = run_analysis(topic)
+        report = run_analysis(topic)
         return str(report)
     except Exception as e:
         logger.error(f"Live analysis failed: {e}")
@@ -361,8 +372,10 @@ def _save_report(topic: str, report: str):
     try:
         import re
         from utils.persistence import save_report
-        prob_match = re.search(r"真相可能概率.*?(\d+)%", report)
+        prob_match = re.search(r"真相可能概率\s*\|\s*([\d.]+)%", report)
         truth_prob = float(prob_match.group(1)) if prob_match else 50.0
+        if not (0 <= truth_prob <= 100):
+            truth_prob = min(max(truth_prob, 0), 100) if truth_prob > 100 else (truth_prob * 100 if truth_prob < 1 else 50.0)
         save_report(topic, report, truth_prob)
     except Exception as e:
         logger.warning(f"Failed to save report: {e}")
@@ -376,9 +389,11 @@ def _render_controversy_dashboard(report: str, topic: str):
     import re
     from ui.components import truth_probability_gauge, sentiment_bar_chart
 
-    prob_match = re.search(r"真相可能概率.*?(\d+)%", report)
+    prob_match = re.search(r"真相可能概率\s*\|\s*([\d.]+)%", report)
     truth_prob = float(prob_match.group(1)) if prob_match else 50.0
-    ev_match = re.search(r"证据链完整度.*?(\d+)/100", report)
+    if not (0 <= truth_prob <= 100):
+        truth_prob = min(max(truth_prob, 0), 100) if truth_prob > 100 else (truth_prob * 100 if truth_prob < 1 else 50.0)
+    ev_match = re.search(r"证据链完整度\s*\|\s*([\d.]+)\s*/\s*100", report)
     evidence_score = int(ev_match.group(1)) if ev_match else 50
     sources = len(re.findall(r"\[来源:", report))
 

@@ -38,7 +38,7 @@ def _search_tavily(query: str, cfg: dict, max_results: int = 10,
         search_depth=kwargs.get("search_depth", "advanced"),
         max_results=max_results,
         include_answer=kwargs.get("include_answer", False),
-        include_raw_content=False,
+        include_raw_content=True,
         topic=kwargs.get("topic", "news"),
         days=kwargs.get("days", 7),
     )
@@ -59,7 +59,7 @@ def _search_duckduckgo(query: str, cfg: dict, max_results: int = 10,
     results = []
     try:
         with DDGS() as ddgs:
-            for r in ddgs.text(query, max_results=max_results):
+            for r in ddgs.text(query, max_results=max_results, max_time=10):
                 results.append({
                     "title": r.get("title", ""),
                     "url": r.get("href", ""),
@@ -68,6 +68,7 @@ def _search_duckduckgo(query: str, cfg: dict, max_results: int = 10,
                 })
     except Exception as e:
         logger.warning(f"DuckDuckGo search failed: {e}")
+        raise RuntimeError(f"DuckDuckGo: {e}") from e
     return results
 
 
@@ -160,6 +161,37 @@ def _search_searxng(query: str, cfg: dict, max_results: int = 10,
         return []
 
 
+def _search_reddit(query: str, max_results: int = 10, **kwargs) -> list[dict]:
+    """Search Reddit for discussions. Public JSON API, no auth needed."""
+    import requests
+    url = "https://www.reddit.com/search.json"
+    headers = {"User-Agent": "TruthLens/1.0 (news analysis tool)"}
+    params = {"q": query, "limit": min(max_results, 25), "sort": "relevance", "t": "month"}
+    try:
+        resp = requests.get(url, headers=headers, params=params, timeout=6)
+        resp.raise_for_status()
+        data = resp.json()
+        results = []
+        for child in data.get("data", {}).get("children", []):
+            post = child.get("data", {})
+            selftext = (post.get("selftext", "") or "")[:800]
+            results.append({
+                "title": post.get("title", ""),
+                "url": f"https://reddit.com{post.get('permalink', '')}",
+                "content": selftext,
+                "source": f"Reddit r/{post.get('subreddit', 'unknown')}",
+                "score": post.get("score", 0),
+                "comments": post.get("num_comments", 0),
+                "upvote_ratio": post.get("upvote_ratio", 0),
+            })
+        logger.info(f"Reddit search: {len(results)} results for '{query[:40]}...'")
+        results.sort(key=lambda r: r["score"] * r["comments"], reverse=True)
+        return results
+    except Exception:
+        # Reddit may be blocked in some regions; fail silently
+        return []
+
+
 _SEARCH_IMPLS = {
     "tavily": _search_tavily,
     "duckduckgo": _search_duckduckgo,
@@ -177,6 +209,11 @@ def search(query: str, max_results: int = 10, domains: Optional[list[str]] = Non
     impl = _SEARCH_IMPLS.get(provider, _search_tavily)
     logger.info(f"Search [{provider}]: {query[:50]}...")
     return impl(query, cfg, max_results=max_results, domains=domains, **kwargs)
+
+
+def search_reddit(query: str, max_results: int = 10) -> list[dict]:
+    """Search Reddit for discussions about a topic."""
+    return _search_reddit(query, max_results=max_results)
 
 
 def get_search_provider() -> str:

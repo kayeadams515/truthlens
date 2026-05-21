@@ -69,6 +69,14 @@ def is_any_llm_configured() -> bool:
 
 # --- Search domains ---
 DEFAULT_SEARCH_DOMAINS = {
+    # 中文官方媒体
+    "新华社": "xinhuanet.com",
+    "人民日报": "people.com.cn",
+    "央视网": "cctv.com",
+    "环球时报": "huanqiu.com",
+    "中国新闻网": "chinanews.com.cn",
+    "光明网": "gmw.cn",
+    # 中文门户与资讯
     "知乎": "zhihu.com",
     "微博": "weibo.com",
     "搜狐": "sohu.com",
@@ -79,6 +87,10 @@ DEFAULT_SEARCH_DOMAINS = {
     "凤凰网": "ifeng.com",
     "观察者网": "guancha.cn",
     "财新": "caixin.com",
+    # 中文社交平台
+    "抖音": "douyin.com",
+    "小红书": "xiaohongshu.com",
+    # 国际媒体
     "BBC": "bbc.com",
     "CNN": "cnn.com",
     "路透社": "reuters.com",
@@ -86,6 +98,13 @@ DEFAULT_SEARCH_DOMAINS = {
     "纽约时报": "nytimes.com",
     "卫报": "theguardian.com",
     "华盛顿邮报": "washingtonpost.com",
+    # 国际社交平台
+    "YouTube": "youtube.com",
+    "X(Twitter)": "x.com",
+    "Facebook": "facebook.com",
+    "Instagram": "instagram.com",
+    "Reddit": "reddit.com",
+    "TikTok": "tiktok.com",
 }
 
 

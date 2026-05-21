@@ -96,8 +96,12 @@ def _search_cn_sources(query: str, max_results: int = 6) -> list[dict]:
     from utils.search import CN_DOMAINS, _filter_results
     from utils.search_providers import search as provider_search
     domains = CN_DOMAINS if _domain_aware() else None
-    results = provider_search(query=query, max_results=max_results, domains=domains,
-                              search_depth="advanced", topic="news", days=7)
+    try:
+        results = provider_search(query=query, max_results=max_results, domains=domains,
+                                  search_depth="advanced", topic="news", days=7)
+    except Exception as e:
+        logger.warning(f"CN source search failed: {e}")
+        return []
     return _filter_results(results)
 
 
@@ -106,8 +110,12 @@ def _search_en_sources(query: str, max_results: int = 6) -> list[dict]:
     from utils.search import EN_DOMAINS, _filter_results
     from utils.search_providers import search as provider_search
     domains = EN_DOMAINS if _domain_aware() else None
-    results = provider_search(query=query, max_results=max_results, domains=domains,
-                              search_depth="advanced", topic="news", days=7)
+    try:
+        results = provider_search(query=query, max_results=max_results, domains=domains,
+                                  search_depth="advanced", topic="news", days=7)
+    except Exception as e:
+        logger.warning(f"EN source search failed: {e}")
+        return []
     return _filter_results(results)
 
 
@@ -178,6 +186,34 @@ def fetch_weekly_hot_news() -> dict:
 
     logger.info(f"Weekly EN search: {len(global_items)} results from EN domains")
 
+    # ---- Supplement with RSS feeds (quality news baseline) ----
+    try:
+        from utils.news_sources import fetch_all_feeds
+        rss_items = fetch_all_feeds()
+        rss_added = 0
+        all_urls = cn_seen | gl_seen
+        for r in rss_items:
+            url = r.get("url", "")
+            if url and url not in all_urls:
+                all_urls.add(url)
+                entry = {
+                    "title": r.get("title", ""),
+                    "content": r.get("content", "")[:200],
+                    "url": url,
+                    "source": r.get("source", ""),
+                    "region": r.get("region", "global"),
+                }
+                if r.get("region") == "china":
+                    china_items.append(entry)
+                else:
+                    global_items.append(entry)
+                rss_added += 1
+        logger.info(f"RSS supplement: {rss_added} new items added")
+    except ImportError:
+        logger.info("RSS module not available, skipping")
+    except Exception as e:
+        logger.warning(f"RSS supplement failed: {e}")
+
     # ---- Translate & Classify (CN titles to Chinese, EN titles to Chinese) ----
     china_items = _translate_and_classify(china_items)
     global_items = _translate_and_classify(global_items)
@@ -207,17 +243,3 @@ def fetch_weekly_hot_news() -> dict:
     return {"china": china_items, "global": global_items}
 
 
-def get_fallback_weekly_news() -> dict:
-    """Fallback when Tavily unavailable."""
-    return {
-        "china": [
-            {"title_cn": "本周中国社会热点聚焦", "title": "", "content": "多个社会民生话题引发广泛讨论", "source": "", "region": "china", "controversy": "high"},
-            {"title_cn": "科技行业最新动态与争议", "title": "", "content": "AI技术应用边界再次成为讨论焦点", "source": "", "region": "china", "controversy": "high"},
-            {"title_cn": "经济政策调整引发市场关注", "title": "", "content": "新一轮房地产调控政策出台", "source": "", "region": "china", "controversy": "medium"},
-        ],
-        "global": [
-            {"title_cn": "国际地缘政治新动向", "title": "", "content": "全球主要国家外交关系出现新变化", "source": "", "region": "global", "controversy": "high"},
-            {"title_cn": "全球科技竞争加剧", "title": "", "content": "各国在人工智能领域竞相出台新政策", "source": "", "region": "global", "controversy": "medium"},
-            {"title_cn": "气候变化国际谈判进展", "title": "", "content": "新一轮全球气候峰会达成部分共识", "source": "", "region": "global", "controversy": "medium"},
-        ],
-    }

@@ -4,7 +4,7 @@ import streamlit as st
 
 from utils.logger import logger
 from utils.persistence import load_reports
-from utils.weekly_news import fetch_weekly_hot_news, get_fallback_weekly_news
+from utils.weekly_news import fetch_weekly_hot_news
 
 
 def render_feed():
@@ -61,7 +61,7 @@ def render_feed():
                 weekly_data = fetch_weekly_hot_news()
             except Exception as e:
                 logger.warning(f"Weekly news fetch failed: {e}")
-                weekly_data = get_fallback_weekly_news()
+                weekly_data = {"china": [], "global": [], "error": str(e)}
             st.session_state.weekly_data = weekly_data
             st.session_state.weekly_news_loaded = True
     else:
@@ -69,6 +69,9 @@ def render_feed():
 
     china_news = weekly_data.get("china", [])
     global_news = weekly_data.get("global", [])
+
+    if weekly_data.get("error"):
+        st.warning(f"⚠️ 新闻获取失败：{weekly_data['error']}。请检查搜索配置或尝试切换 DuckDuckGo。")
 
     # China news
     col_title, col_btn = st.columns([5, 1])

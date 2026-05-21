@@ -1,23 +1,17 @@
-"""Web search tool for CrewAI agents — uses Tavily API with mock data fallback."""
+"""Web search tool for CrewAI agents — live web search via configured provider."""
 
 from __future__ import annotations
 
 import json
-from typing import Any, Optional
+from typing import Optional
 
 from crewai.tools import BaseTool
-from pydantic import Field
 
-from tools.mock_data import get_mock_news, search_mock_news, list_scenarios
 from utils.logger import logger
 
 
 class TruthLensSearchTool(BaseTool):
-    """Search tool that gathers multi-source intelligence on a given topic.
-
-    When Tavily API key is available, performs live web search.
-    Otherwise, falls back to realistic mock data for demonstration.
-    """
+    """Search tool that gathers multi-source intelligence on a given topic."""
 
     name: str = "truth_lens_search"
     description: str = (
@@ -34,15 +28,25 @@ class TruthLensSearchTool(BaseTool):
             if result:
                 return result
         except Exception as e:
-            logger.warning(f"Live search failed, falling back to mock: {e}")
+            logger.error(f"Live search failed: {e}")
 
-        return self._mock_search(query)
+        return json.dumps({
+            "topic": query,
+            "source": "error",
+            "error": "搜索失败：未配置搜索引擎 API Key 或搜索服务不可用。请在设置中配置搜索提供商。",
+            "official_news": [],
+            "we_media": [],
+            "social_sentiment": [],
+            "search_summary": "",
+            "raw_results": [],
+            "social_results": [],
+        }, ensure_ascii=False, indent=2)
 
     def _live_search(self, query: str) -> Optional[str]:
         """Perform live web search via the configured search provider."""
         try:
             from utils.search import bilingual_search
-            from utils.search_providers import get_search_provider
+            from utils.search_providers import get_search_provider, search_reddit
 
             provider = get_search_provider()
 
@@ -57,6 +61,8 @@ class TruthLensSearchTool(BaseTool):
                 topic="news", days=30,
             )
 
+            reddit_results = search_reddit(query, max_results=8)
+
             result = {
                 "topic": query,
                 "source": f"{provider}_live_search",
@@ -66,6 +72,7 @@ class TruthLensSearchTool(BaseTool):
                 "search_summary": "",
                 "raw_results": news_results,
                 "social_results": social_results,
+                "reddit_results": reddit_results,
             }
 
             return json.dumps(result, ensure_ascii=False, indent=2)
@@ -73,40 +80,3 @@ class TruthLensSearchTool(BaseTool):
         except Exception as e:
             logger.error(f"Live search error: {e}")
             return None
-
-    def _mock_search(self, query: str) -> str:
-        """Use mock data as fallback."""
-        logger.info(f"Using mock data for query: {query}")
-
-        # Try to find matching scenario
-        scenario = search_mock_news(query)
-
-        if not scenario:
-            # If no match, return the first scenario with a note
-            scenario = get_mock_news("ev_crash")
-            note = f'未找到与"{query}"完全匹配的模拟数据，以下是示例数据以供演示。'
-        else:
-            note = f'以下为关于"{scenario["topic"]}"的模拟情报数据。'
-
-        result = {
-            "topic": scenario["topic"],
-            "source": "mock_data",
-            "note": note,
-            "summary_5w1h": scenario["summary_5w1h"],
-            "official": scenario["official"],
-            "we_media": scenario["we_media"],
-            "social_media": scenario["social_media"],
-        }
-
-        return json.dumps(result, ensure_ascii=False, indent=2)
-
-
-class ScenarioListTool(BaseTool):
-    """Tool to list all available pre-built analysis scenarios."""
-
-    name: str = "list_scenarios"
-    description: str = "列出系统内预置的所有热点新闻事件，供用户浏览和选择。"
-
-    def _run(self, _: str = "") -> str:
-        scenarios = list_scenarios()
-        return json.dumps(scenarios, ensure_ascii=False, indent=2)
