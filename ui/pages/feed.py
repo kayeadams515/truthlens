@@ -30,22 +30,31 @@ def render_feed():
     with col2:
         mode = st.selectbox(
             "分析模式",
-            ["📋 资讯模式", "⚔️ 争议模式"],
+            ["📋 资讯模式", "⚔️ 争议模式", "🧬 争议洞察"],
             label_visibility="collapsed",
             key="feed_search_mode",
         )
     with col3:
         search_btn = st.button("🔍 开始透视", use_container_width=True, type="primary", key="feed_search_btn")
 
-    is_controversy = "争议" in mode
-    if is_controversy:
+    # Exact mode matching (avoid "争议" substring matching "争议洞察")
+    if mode == "🧬 争议洞察":
+        selected_mode = "insight"
+    elif mode == "⚔️ 争议模式":
+        selected_mode = "controversy"
+    else:
+        selected_mode = "info"
+
+    if selected_mode == "insight":
+        st.caption("🧬 争议洞察：社交媒体舆论阵营深度分析，适合吃瓜、八卦、热门话题。约 20-40 秒。")
+    elif selected_mode == "controversy":
         st.caption("⚔️ 争议模式：4-Agent 辩论流水线，深度交叉验证各方说辞，计算真相概率。约 30-90 秒。")
     else:
         st.caption("📋 资讯模式：快速搜集和梳理信息，展示事件全貌。")
 
     if search_btn and topic.strip():
         st.session_state.analyze_topic = topic.strip()
-        st.session_state.analyze_mode = "controversy" if is_controversy else "info"
+        st.session_state.analyze_mode = selected_mode
         st.session_state.from_feed = True
         st.session_state.current_page = "instant"
         st.rerun()

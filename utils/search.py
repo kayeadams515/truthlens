@@ -12,8 +12,9 @@ CN_DOMAINS = [
     "zhihu.com", "weibo.com", "sohu.com", "sina.com.cn",
     "163.com", "qq.com", "thepaper.cn", "ifeng.com",
     "guancha.cn", "cls.cn", "caixin.com", "bjd.com.cn",
-    # 社交平台
+    # 社交与社区平台
     "douyin.com", "xiaohongshu.com",
+    "bilibili.com", "tieba.baidu.com", "douban.com",
 ]
 
 EN_DOMAINS = [

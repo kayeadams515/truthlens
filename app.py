@@ -124,7 +124,7 @@ def main():
         page_keys = ["feed", "instant"]
         current_idx = page_keys.index(st.session_state.current_page) if st.session_state.current_page in page_keys else 0
 
-        selected_label = st.radio("选择页面", page_labels, index=current_idx, label_visibility="collapsed", key="nav_radio")
+        selected_label = st.radio("选择页面", page_labels, index=current_idx, label_visibility="collapsed")
         st.session_state.current_page = page_keys[page_labels.index(selected_label)]
 
         st.divider()

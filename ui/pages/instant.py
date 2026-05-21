@@ -29,11 +29,14 @@ def render_instant():
         st.session_state.pop("current_report", None)
         st.session_state.pop("current_summary", None)
         st.session_state.pop("current_search_results", None)
+        st.session_state.pop("current_insight_report", None)
+        st.session_state.pop("current_insight_data", None)
         st.session_state.pop("qa_history", None)
 
     topic = st.session_state.get("current_topic", "")
     mode = st.session_state.get("current_mode", "info")
     is_controversy = (mode == "controversy")
+    is_insight = (mode == "insight")
 
     if not topic:
         st.markdown("""
@@ -51,22 +54,27 @@ def render_instant():
     cached_report = st.session_state.get("current_report")
     cached_summary = st.session_state.get("current_summary")
     cached_search = st.session_state.get("current_search_results")
+    cached_insight_report = st.session_state.get("current_insight_report")
+    cached_insight_data = st.session_state.get("current_insight_data")
 
     if cached_report and is_controversy:
         _display_controversy_report(topic, cached_report)
         _render_controversy_dashboard(cached_report, topic)
         _render_followup_qa(topic, cached_report, mode="controversy")
-    elif cached_summary and not is_controversy:
+    elif cached_insight_report and is_insight:
+        _display_insight_result(topic, cached_insight_report, cached_insight_data)
+    elif cached_summary and not is_controversy and not is_insight:
         _display_info_result(topic, cached_summary, cached_search or [])
     elif is_controversy:
-        # Fresh controversy analysis
         _run_controversy_mode(topic)
+    elif is_insight:
+        _run_insight_mode(topic)
     else:
         # Fresh info analysis — disambiguate first if needed
         with st.spinner("🔍 正在分析关键词..."):
             resolved_topic = _disambiguate_topic(topic)
         if resolved_topic is None:
-            return  # showing candidates, wait for user pick
+            return
         _run_info_mode(resolved_topic)
 
     # Back button
@@ -123,6 +131,749 @@ def _run_controversy_mode(topic: str):
     _display_controversy_report(topic, report)
     _render_controversy_dashboard(report, topic)
     _render_followup_qa(topic, report, mode="controversy")
+
+
+# ============================================================
+# Insight Mode
+# ============================================================
+
+def _run_insight_mode(topic: str):
+    """Controversy insight analysis — social-media-focused, opinion camp mapping.
+    2-step direct LLM: opinion camp analysis → narrative synthesis.
+    No CrewAI involved — faster and more creative than controversy mode.
+    """
+    st.markdown(f"""
+    <div style="border:1px solid rgba(128,128,128,0.15); border-radius:8px; padding:16px; margin-bottom:20px;">
+        <strong>🧬 争议洞察：</strong>{topic}
+    </div>
+    """, unsafe_allow_html=True)
+
+    if not is_any_llm_configured():
+        st.warning("⚠️ 未配置 LLM API Key。争议洞察需要 LLM 进行深度分析。将使用模板化输出。")
+
+    try:
+        with st.spinner("🔍 正在搜集社交媒体讨论..."):
+            start_time = datetime.now()
+
+            # Step 1: Social-media-focused search
+            search_results = _search_insight(topic)
+
+        if not search_results:
+            st.warning(f"未找到关于「{topic}」的社交媒体讨论，请尝试换一个关键词或更宽泛的表述。")
+            st.caption("💡 提示：确保已在设置中配置搜索 API Key（如 Tavily），或尝试切换到 DuckDuckGo。")
+            return
+
+        st.success(f"✅ 搜集到 {len(search_results)} 条相关讨论")
+
+        # Step 2: Opinion camp analysis (LLM Call 1)
+        with st.spinner("🧐 正在识别舆论阵营与情绪分布..."):
+            opinion_data = _analyze_opinion_camps(topic, search_results)
+
+        num_camps = len(opinion_data.get("camps", []))
+        if num_camps > 0:
+            camp_names = "、".join(c.get("name", "") for c in opinion_data["camps"])
+            st.success(f"✅ 识别出 {num_camps} 个舆论阵营：{camp_names}")
+        else:
+            st.info("ℹ️ 未能清晰识别舆论阵营，将生成通用报告")
+
+        num_communities = len(opinion_data.get("communities", []))
+        if num_communities > 0:
+            st.caption(f"👥 涉及 {num_communities} 个圈层/社区")
+
+        genes = opinion_data.get("controversy_genes", [])
+        if genes:
+            gene_tags = " · ".join(f"#{g.get('tag', '')}" for g in genes)
+            st.caption(f"🏷️ {gene_tags}")
+
+        # Step 3: Narrative report synthesis (LLM Call 2)
+        with st.spinner("✍️ 正在撰写洞察报告..."):
+            report = _synthesize_insight_report(topic, opinion_data, search_results)
+
+        elapsed = (datetime.now() - start_time).total_seconds()
+        st.caption(f"⏱️ 耗时 {elapsed:.0f} 秒")
+
+        # Cache for redisplay on Q&A rerun
+        st.session_state.current_insight_report = report
+        st.session_state.current_insight_data = opinion_data
+
+        _display_insight_result(topic, report, opinion_data)
+
+    except Exception as e:
+        logger.error(f"Insight mode failed for '{topic}': {e}")
+        st.error(f"❌ 争议洞察分析出错：{str(e)[:200]}")
+        st.caption("请检查网络连接和 API 配置后重试。")
+
+
+def _search_insight(topic: str) -> list[dict]:
+    """Social-media-focused search for controversy insight mode.
+    Multiple parallel queries targeting different platforms and angles.
+    Uses 90-day window (vs 30 for news) since social controversies evolve slowly.
+    """
+    from utils.search import bilingual_search
+    from utils.search_providers import search_reddit
+
+    queries = [
+        f"{topic} 争议 讨论 看法",
+        f"{topic} 网友评论 观点",
+        f"{topic} 舆论 热议 两极",
+        f"{topic} debate controversy reddit",
+        f"{topic} viral outrage discussion",
+    ]
+
+    all_results = []
+
+    # Chinese social queries (first 3)
+    for q in queries[:3]:
+        try:
+            results = bilingual_search(
+                query=q, max_results=6, search_depth="advanced",
+                topic="news", days=90,
+            )
+            all_results.extend(results)
+        except Exception:
+            continue
+
+    # English social queries (last 2)
+    for q in queries[3:]:
+        try:
+            results = bilingual_search(
+                query=q, max_results=4, search_depth="basic",
+                topic="news", days=90,
+            )
+            all_results.extend(results)
+        except Exception:
+            continue
+
+    # Reddit — best source for organic opinion camp analysis
+    try:
+        reddit_results = search_reddit(topic, max_results=8)
+        all_results.extend(reddit_results)
+    except Exception:
+        pass
+
+    # Deduplicate by URL
+    seen_urls = set()
+    unique = []
+    for r in all_results:
+        url = r.get("url", "")
+        if url:
+            norm_url = url.split("?")[0]
+            if norm_url not in seen_urls:
+                seen_urls.add(norm_url)
+                unique.append(r)
+        else:
+            unique.append(r)
+
+    logger.info(f"Insight search for '{topic[:30]}': {len(unique)} unique from {len(all_results)} raw")
+    return unique[:25]
+
+
+def _analyze_opinion_camps(topic: str, search_results: list[dict]) -> dict:
+    """LLM Call 1: Analyze raw search results to extract full opinion landscape.
+    Returns structured JSON with camps, communities, genes, timeline, platform sentiment, etc.
+    """
+    if not is_any_llm_configured():
+        return {"camps": [], "communities": [], "controversy_genes": [],
+                "timeline": [], "opinion_shifts": [], "cross_platform_sentiment": {},
+                "sentiment_distribution": {}, "topic_intro": "", "is_meme": False}
+
+    from config import create_integration_llm
+    llm = create_integration_llm(temperature=0.2)
+
+    # Format search results with platform tags and dates for LLM
+    items = []
+    for i, r in enumerate(search_results[:20]):
+        title = r.get("title", "")
+        content = r.get("content", "")[:350]
+        source = r.get("source", "")
+        url = r.get("url", "").lower()
+        # Platform detection
+        if "reddit" in url:
+            platform = "Reddit"
+        elif "weibo" in url:
+            platform = "微博"
+        elif "zhihu" in url:
+            platform = "知乎"
+        elif "xiaohongshu" in url:
+            platform = "小红书"
+        elif "bilibili" in url:
+            platform = "B站"
+        elif "tieba.baidu" in url:
+            platform = "百度贴吧"
+        elif "douban" in url:
+            platform = "豆瓣"
+        elif "x.com" in url or "twitter" in url:
+            platform = "X/Twitter"
+        elif "youtube" in url:
+            platform = "YouTube"
+        elif "facebook" in url:
+            platform = "Facebook"
+        elif "instagram" in url:
+            platform = "Instagram"
+        elif "tiktok" in url:
+            platform = "TikTok"
+        else:
+            platform = source or "通用"
+        # Try to extract date from content
+        import re
+        date_match = re.search(r"(\d{4}[-/年]\d{1,2}[-/月]\d{1,2}[日号]?)", content[:200])
+        date_str = f" [{date_match.group(1)}]" if date_match else ""
+        items.append(f"[{i+1}] ({platform}){date_str} {title}\n  {content}")
+
+    items_text = "\n\n".join(items)
+
+    prompt = f"""你是一位资深社交媒体舆论分析师。用户正在研究「{topic}」的社交网络争议。
+
+以下是搜集到的社交媒体讨论（含平台和日期标注）：
+
+{items_text}
+
+请深入分析并输出 JSON 格式结果（只输出 JSON，放在 ```json 代码块中）：
+
+{{
+  "topic_intro": "用2-3句话介绍这个话题/人物/事件的基本背景（中文）",
+  "is_meme": true/false,
+  "meme_info": {{"origin": "梗的起源（如适用）", "evolution": "传播和演变路径", "first_appeared": "最早出现时间/平台"}},
+  "camps": [
+    {{
+      "name": "阵营简称",
+      "size_estimate": 0,
+      "audience_profile": "什么样的人群持此观点",
+      "core_beliefs": "核心立场",
+      "key_arguments": ["论点"],
+      "emotional_tone": "愤怒/理性/嘲讽/同情/调侃/中立",
+      "typical_platforms": ["平台"],
+      "representative_quote": "代表性言论"
+    }}
+  ],
+  "communities": [
+    {{"name": "圈层名", "perspective": "该圈层的独特视角", "aligned_camp": "倾向阵营"}}
+  ],
+  "controversy_genes": [
+    {{"tag": "标签", "explanation": "解释"}}
+  ],
+  "timeline": [
+    {{"date": "YYYY-MM-DD或约YYYY-MM", "event": "关键事件", "significance": "引爆点/反转/平息/升级", "heat": 0}}
+  ],
+  "opinion_shifts": [
+    {{"from": "起初观点", "to": "后来转变", "trigger": "触发事件", "approx_date": "约YYYY-MM"}}
+  ],
+  "cross_platform_sentiment": {{}},
+  "sentiment_distribution": {{}},
+  "controversy_type": "争议类型",
+  "underlying_tension": "深层矛盾洞察"
+}}
+
+要求：
+- camps 识别 2-4 个主要阵营，各阵营 size_estimate 总和为 100%，基于搜索结果推断
+- communities 识别至少 1-2 个相关圈层
+- controversy_genes 提取至少 1-2 个争议基因标签
+- timeline 至少 3-5 个关键节点（如能识别），heat 为 0-100 的相对热度
+- cross_platform_sentiment: 只填实际出现在搜索结果中的平台，情绪值为 0-100 整数，总和不必为 100
+- sentiment_distribution: 整体情绪分布，值为 0-100 整数，总和不必为 100
+- ⚠️ 重要：所有数值必须是基于搜索结果的推断，无法判断的字段用空数组 [] 或空对象 {{}} 标记，不要编造数据
+- 如果搜索数据显示不足，用空对象/数组标记
+- 所有中文内容使用中文"""
+
+    try:
+        resp = llm.call(messages=[{"role": "user", "content": prompt}])
+        import json as _json, re as _re
+        # Try extracting from markdown code block first
+        json_match = _re.search(r'```(?:json)?\s*\n?(.*?)\n?```', resp, _re.DOTALL)
+        if json_match:
+            return _json.loads(json_match.group(1))
+        # Try finding JSON object
+        brace_start = resp.find("{")
+        brace_end = resp.rfind("}")
+        if brace_start != -1 and brace_end > brace_start:
+            return _json.loads(resp[brace_start:brace_end + 1])
+        logger.warning(f"Failed to parse opinion camp JSON: {resp[:200]}")
+        return {}
+    except Exception as e:
+        logger.warning(f"Opinion camp analysis failed: {e}")
+        return {}
+
+
+def _synthesize_insight_report(topic: str, opinion_data: dict, search_results: list[dict]) -> str:
+    """LLM Call 2: Synthesize opinion data into a natural narrative report.
+    No rigid template — writes like a social observation article.
+    """
+    if not is_any_llm_configured() or not opinion_data.get("camps"):
+        return _template_insight_report(topic, opinion_data)
+
+    from config import create_integration_llm
+    llm = create_integration_llm(temperature=0.3)
+
+    import json as _json
+    analysis_json = _json.dumps(opinion_data, ensure_ascii=False, indent=2)
+
+    # Gather raw quotes for color
+    quote_lines = []
+    for r in search_results[:6]:
+        title = r.get("title", "")
+        content = r.get("content", "")[:200]
+        url = r.get("url", "").lower()
+        if "reddit" in url:
+            plat = " [Reddit]"
+        elif "weibo" in url:
+            plat = " [微博]"
+        elif "zhihu" in url:
+            plat = " [知乎]"
+        elif "xiaohongshu" in url:
+            plat = " [小红书]"
+        elif "bilibili" in url:
+            plat = " [B站]"
+        elif "douban" in url:
+            plat = " [豆瓣]"
+        else:
+            plat = ""
+        quote_lines.append(f"- 「{title}」{plat}\n  {content}")
+    quotes_text = "\n\n".join(quote_lines)
+
+    is_meme = opinion_data.get("is_meme", False)
+    meme_section = ""
+    if is_meme:
+        mi = opinion_data.get("meme_info", {})
+        meme_section = f"""
+特别说明：这是一个网络梗/流行语类话题。请在报告中包含梗的起源（{mi.get('origin', '未知')}）、
+传播路径（{mi.get('evolution', '未知')}）和语义演变，用「梗百科」的风格自然叙述。"""
+
+    prompt = f"""你是一位深谙互联网文化的社会观察家。请围绕「{topic}」撰写一份**争议洞察报告**。
+
+## 舆论分析数据
+{analysis_json}
+{meme_section}
+
+## 部分原始素材（增加现场感）
+{quotes_text}
+
+## 写作要求
+
+写一份自然流畅的长文（约2000-3000字）。**严禁使用固定模板**——不要用"一、二、三"编号，不要用"背景-发展-高潮-结局"的套路结构。
+
+报告应该像一篇优秀的深度社会观察文章，自然覆盖：
+
+1. **开场**：用吸引人的方式引入话题——这是什么事件/人物/梗，为什么在社交媒体上引发讨论。如果是梗，像"梗百科"一样追溯起源和演变。
+
+2. **舆论阵营画像**：介绍2-4个主要意见阵营。对每个阵营——
+   - 他们是谁（人群画像）
+   - 他们主张什么
+   - 他们为什么这样想
+   - 用引号引用一条代表性言论
+
+3. **圈层视角**：不同圈层/社群（电竞圈、二次元、职场人、饭圈等）如何看待这件事，他们各自关注什么。
+
+4. **争议演变时间线**：这场争议是如何发展的——引爆点 → 扩散 → 可能的反转或平息。如果舆论发生了迁移，描述变化过程。
+
+5. **跨平台对比**：微博/知乎/豆瓣/小红书/B站/Reddit 各自呈现什么特点——哪个平台情绪化、哪个理性分析、哪个站队表态。
+
+6. **争议基因**：这场争议本质上触动了什么——是代际冲突、阶层焦虑、性别对立、身份政治，还是圈层隔阂？给出有洞察力的分析。
+
+7. **深度观察**：超越表面，给出一些值得深思的观察。
+
+## 风格要求
+- 语言流畅自然，像一篇优质自媒体深度文章
+- 有力但不偏激，保持观察者的距离感
+- 引用代表性言论用引号标注，增加现场感
+- 可以有锐利的洞察，但不要情绪化站队
+- 避免学术腔和说教感"""
+
+    try:
+        return llm.call(messages=[{"role": "user", "content": prompt}])
+    except Exception as e:
+        logger.warning(f"Insight report synthesis failed: {e}")
+        return _template_insight_report(topic, opinion_data)
+
+
+def _template_insight_report(topic: str, opinion_data: dict) -> str:
+    """Fallback template when LLM is unavailable."""
+    camps = opinion_data.get("camps", [])
+    genes = opinion_data.get("controversy_genes", [])
+    communities = opinion_data.get("communities", [])
+    timeline = opinion_data.get("timeline", [])
+
+    lines = [f"# 🧬 争议洞察：{topic}\n"]
+
+    intro = opinion_data.get("topic_intro", "")
+    if intro:
+        lines.append(f"{intro}\n")
+
+    if camps:
+        lines.append(f"## 舆论阵营（共 {len(camps)} 个）\n")
+        for i, camp in enumerate(camps, 1):
+            lines.append(f"### {i}. {camp.get('name', '未知')}（约 {camp.get('size_estimate', '?')}%）")
+            lines.append(f"- **人群画像**: {camp.get('audience_profile', '')}")
+            lines.append(f"- **核心立场**: {camp.get('core_beliefs', '')}")
+            args = camp.get("key_arguments", [])
+            if args:
+                lines.append(f"- **主要论据**: {'; '.join(args)}")
+            lines.append(f"- **情绪基调**: {camp.get('emotional_tone', '')}")
+            quote = camp.get("representative_quote", "")
+            if quote:
+                lines.append(f"- **代表性言论**: 「{quote}」")
+            lines.append("")
+
+    if communities:
+        lines.append("## 涉及圈层\n")
+        for c in communities:
+            lines.append(f"- **{c.get('name', '')}**: {c.get('perspective', '')}（倾向: {c.get('aligned_camp', '未知')}）")
+        lines.append("")
+
+    if timeline:
+        lines.append("## 关键时间线\n")
+        for t in sorted(timeline, key=lambda x: x.get("date", "")):
+            lines.append(f"- **{t.get('date', '')}** — {t.get('event', '')} [{t.get('significance', '')}]")
+        lines.append("")
+
+    if genes:
+        lines.append("## 争议基因\n")
+        for g in genes:
+            lines.append(f"- **#{g.get('tag', '')}**: {g.get('explanation', '')}")
+        lines.append("")
+
+    tension = opinion_data.get("underlying_tension", "")
+    if tension:
+        lines.append(f"## 深层矛盾\n\n{tension}\n")
+
+    lines.append("\n> ⚠️ 模板化摘要。配置 LLM API Key 可启用 AI 智能深度分析。")
+    return "\n".join(lines)
+
+
+def _display_insight_result(topic: str, report: str, insight_data: dict):
+    """Display an insight mode report with metadata and enhanced dashboard."""
+    llm = st.session_state.get("integration_llm_provider", "")
+    model = st.session_state.get("integration_llm_model", "")
+    model_short = model.split("/")[-1] if "/" in model else model
+    st.markdown(f"""
+    <div style="text-align:right; opacity:0.5; font-size:12px; margin-bottom:16px;">
+        争议洞察 | {model_short}
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<div class="report-container">', unsafe_allow_html=True)
+    st.markdown(report, unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # Dashboard
+    _render_insight_dashboard(insight_data, topic)
+
+    # Save
+    _save_insight_report(topic, report, insight_data)
+
+    # Follow-up Q&A
+    _render_followup_qa(topic, report, mode="insight")
+
+    # Upgrade to full controversy analysis
+    st.divider()
+    st.markdown("### ⚔️ 需要更深度的事实核查？")
+    st.caption("启动 4-Agent 辩论流水线，交叉验证各方说辞，计算真相概率。适合需要核实事实的争议事件。")
+    if st.button("⚔️ 启动争议分析", type="primary", use_container_width=True, key="insight_upgrade"):
+        st.session_state.analyze_topic = topic
+        st.session_state.analyze_mode = "controversy"
+        st.rerun()
+
+
+def _render_insight_dashboard(insight_data: dict, topic: str):
+    """Render the enhanced insight dashboard with all 6 enhancements."""
+    if not insight_data:
+        return
+
+    camps = insight_data.get("camps", [])
+    genes = insight_data.get("controversy_genes", [])
+    communities = insight_data.get("communities", [])
+    timeline = insight_data.get("timeline", [])
+    opinion_shifts = insight_data.get("opinion_shifts", [])
+    cross_platform = insight_data.get("cross_platform_sentiment", {})
+    sentiment = insight_data.get("sentiment_distribution", {})
+    controversy_type = insight_data.get("controversy_type", "")
+    underlying_tension = insight_data.get("underlying_tension", "")
+    is_meme = insight_data.get("is_meme", False)
+
+    st.divider()
+    st.markdown("### 📊 争议洞察仪表盘")
+    st.caption("⚠️ 以下数值为 AI 基于搜索结果的**定性估算**，非精确统计数据，仅供参考舆论格局")
+
+    # ---- Row 0: Controversy Gene Tags ----
+    if isinstance(genes, list) and genes:
+        _render_controversy_genes(genes)
+
+    # ---- Row 1: Key Metrics ----
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("舆论阵营", f"{len(camps)} 个")
+    with col2:
+        num_communities = len(communities)
+        st.metric("涉及圈层", f"{num_communities} 个" if num_communities else "—")
+    with col3:
+        num_timeline = len(timeline)
+        st.metric("关键节点", f"{num_timeline} 个" if num_timeline else "—")
+    with col4:
+        st.metric("争议类型", controversy_type[:10] if controversy_type else "待分析")
+
+    if is_meme:
+        st.caption("🧬 已识别为梗/网络流行语类话题 — 报告包含梗百科溯源")
+
+    # ---- Row 2: Camp Size Chart + Sentiment Distribution ----
+    col_l, col_r = st.columns(2)
+    with col_l:
+        if isinstance(camps, list) and camps and any(
+            isinstance(c, dict) and c.get("size_estimate", 0) > 0 for c in camps
+        ):
+            _render_camp_size_chart(camps)
+        else:
+            st.markdown("""
+            <div style="text-align:center; padding:60px 20px; opacity:0.4;">
+                <p style="font-size:14px; font-weight:600;">舆论阵营规模分布</p>
+                <p style="font-size:13px;">暂无数据</p>
+            </div>
+            """, unsafe_allow_html=True)
+    with col_r:
+        from ui.components import sentiment_bar_chart
+        chart_data = {}
+        if isinstance(sentiment, dict):
+            for k, v in sentiment.items():
+                if isinstance(v, (int, float)):
+                    chart_data[k] = v / 100.0 if v > 1 else v
+        if chart_data:
+            sentiment_bar_chart(chart_data)
+        else:
+            st.markdown("""
+            <div style="text-align:center; padding:60px 20px; opacity:0.4;">
+                <p style="font-size:14px; font-weight:600;">情绪分布</p>
+                <p style="font-size:13px;">暂无数据</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+    # ---- Row 3: Platform Radar + Communities Table ----
+    col_l2, col_r2 = st.columns(2)
+    with col_l2:
+        has_platform_data = False
+        if isinstance(cross_platform, dict) and len(cross_platform) >= 2:
+            try:
+                has_platform_data = any(
+                    isinstance(pdata, dict) and any(
+                        isinstance(v, (int, float)) and v > 0 for v in pdata.values()
+                    )
+                    for pdata in cross_platform.values()
+                )
+            except Exception:
+                has_platform_data = False
+        if has_platform_data:
+            _render_platform_radar(cross_platform)
+        else:
+            st.markdown("""
+            <div style="text-align:center; padding:60px 20px; opacity:0.4;">
+                <p style="font-size:14px; font-weight:600;">跨平台情绪对比</p>
+                <p style="font-size:13px;">暂无数据</p>
+            </div>
+            """, unsafe_allow_html=True)
+    with col_r2:
+        if isinstance(communities, list) and communities:
+            _render_communities_table(communities)
+
+    # ---- Row 4: Timeline ----
+    if isinstance(timeline, list) and timeline and any(
+        isinstance(t, dict) and t.get("event") for t in timeline
+    ):
+        _render_timeline(timeline)
+
+    # ---- Row 5: Opinion Shifts ----
+    if isinstance(opinion_shifts, list) and opinion_shifts:
+        st.markdown("#### 🔄 观点迁移")
+        for shift in opinion_shifts:
+            trigger = shift.get("trigger", "")
+            approx_date = shift.get("approx_date", "")
+            date_str = f"（{approx_date}）" if approx_date else ""
+            st.markdown(f"""
+            <div style="padding:8px 12px; margin:6px 0; border-left:3px solid #f0a500; background:rgba(240,165,0,0.06); border-radius:0 6px 6px 0;">
+                <strong>{shift.get('from', '')}</strong> → <strong>{shift.get('to', '')}</strong> {date_str}<br>
+                <span style="opacity:0.7; font-size:13px;">📌 {trigger}</span>
+            </div>
+            """, unsafe_allow_html=True)
+
+    # ---- Row 6: Underlying Tension ----
+    if underlying_tension:
+        st.markdown("#### 🧠 深层矛盾洞察")
+        st.info(underlying_tension)
+
+
+def _render_controversy_genes(genes: list[dict]):
+    """Render controversy gene tags as colored HTML badges."""
+    gene_colors = {
+        "代际冲突": "#d63384", "阶层焦虑": "#fd7e14", "性别议题": "#e83e8c",
+        "身份政治": "#6f42c1", "文化差异": "#20c997", "利益冲突": "#dc3545",
+        "价值观对立": "#0d6efd", "圈层隔阂": "#6c757d",
+    }
+    badges_html = " ".join(
+        f'<span style="display:inline-block; padding:4px 12px; margin:3px; '
+        f'border-radius:20px; font-size:13px; font-weight:600; '
+        f'background:{gene_colors.get(g.get("tag", ""), "#6c757d")}22; '
+        f'color:{gene_colors.get(g.get("tag", ""), "#6c757d")}; '
+        f'border:1px solid {gene_colors.get(g.get("tag", ""), "#6c757d")}44;">'
+        f'#{g.get("tag", "")}</span>'
+        for g in genes
+    )
+    st.markdown(f"""
+    <div style="margin-bottom:16px;">
+        <span style="font-size:14px; font-weight:600; opacity:0.7;">🏷️ 争议基因：</span>
+        {badges_html}
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Explanation in expander
+    with st.expander("📖 基因标签解读"):
+        for g in genes:
+            st.markdown(f"- **#{g.get('tag', '')}**：{g.get('explanation', '')}")
+
+
+def _render_camp_size_chart(camps: list[dict]):
+    """Render a bar chart of opinion camp size estimates."""
+    import plotly.graph_objects as go
+    names = [c.get("name", f"阵营{i+1}") for i, c in enumerate(camps)]
+    sizes = [c.get("size_estimate", 0) for c in camps]
+    tones = [c.get("emotional_tone", "") for c in camps]
+    colors = ["#00bfa5", "#d63384", "#f0a500", "#0d6efd", "#fd7e14"]
+
+    fig = go.Figure(go.Bar(
+        x=names, y=sizes,
+        marker=dict(color=colors[:len(sizes)]),
+        text=[f"{s}%" for s in sizes],
+        textposition="outside",
+        hovertemplate="%{x}<br>占比: %{y}%<br>情绪: %{customdata}<extra></extra>",
+        customdata=tones,
+    ))
+    fig.update_layout(
+        title={"text": "舆论阵营规模分布（AI 估算）", "font": {"size": 16}},
+        height=280,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        yaxis={"title": "估计占比 (%)", "range": [0, max(sizes) * 1.3], "showgrid": True, "gridcolor": "rgba(128,128,128,0.1)"},
+        margin=dict(l=20, r=20, t=40, b=40),
+    )
+    st.plotly_chart(fig, use_container_width=True)
+    st.caption("阵营占比由 AI 估算，不代表精确统计数据")
+
+
+def _render_platform_radar(cross_platform: dict):
+    """Render a radar/spider chart comparing sentiment across platforms."""
+    import plotly.graph_objects as go
+
+    platforms = list(cross_platform.keys())
+    # Collect all sentiment dimensions
+    all_dims = set()
+    for pdata in cross_platform.values():
+        all_dims.update(pdata.keys())
+    all_dims = sorted(all_dims)
+
+    if len(all_dims) < 2:
+        return
+
+    fig = go.Figure()
+    palette = ["#00bfa5", "#d63384", "#f0a500", "#0d6efd", "#fd7e14", "#6f42c1", "#20c997"]
+    for i, platform in enumerate(platforms):
+        pdata = cross_platform[platform]
+        values = [pdata.get(d, 0) for d in all_dims]
+        values.append(values[0])  # Close the polygon
+        dims_closed = all_dims + [all_dims[0]]
+        fig.add_trace(go.Scatterpolar(
+            r=values, theta=dims_closed, name=platform,
+            fill="toself", opacity=0.35,
+            marker=dict(color=palette[i % len(palette)]),
+        ))
+
+    fig.update_layout(
+        title={"text": "跨平台情绪对比（AI 估算）", "font": {"size": 16}},
+        height=350,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        polar=dict(
+            radialaxis=dict(range=[0, 100], showticklabels=True, ticks="",
+                          gridcolor="rgba(128,128,128,0.15)"),
+            angularaxis=dict(gridcolor="rgba(128,128,128,0.15)"),
+        ),
+        margin=dict(l=20, r=20, t=40, b=20),
+        legend=dict(orientation="h", yanchor="bottom", y=-0.15),
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+
+def _render_timeline(timeline: list[dict]):
+    """Render a controversy timeline using Plotly scatter + lines."""
+    import plotly.graph_objects as go
+
+    sorted_tl = sorted(timeline, key=lambda x: x.get("date", ""))
+
+    events = [t.get("event", "") for t in sorted_tl]
+    dates = [t.get("date", "") for t in sorted_tl]
+    heats = [t.get("heat", 50) for t in sorted_tl]
+    significances = [t.get("significance", "") for t in sorted_tl]
+
+    # Color by significance type
+    sig_colors = []
+    for s in significances:
+        if "引爆" in s:
+            sig_colors.append("#dc3545")
+        elif "反转" in s:
+            sig_colors.append("#f0a500")
+        elif "平息" in s:
+            sig_colors.append("#00bfa5")
+        else:
+            sig_colors.append("#0d6efd")
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=dates, y=heats, mode="lines+markers",
+        marker=dict(size=[max(h / 5, 8) for h in heats], color=sig_colors,
+                   line=dict(width=1, color="rgba(255,255,255,0.3)")),
+        line=dict(color="#6c757d", width=1, dash="dot"),
+        text=events,
+        hovertemplate="%{x}<br>%{text}<br>热度: %{y}<extra></extra>",
+    ))
+    fig.update_layout(
+        title={"text": "争议演变时间线（AI 梳理）", "font": {"size": 16}},
+        height=260,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        xaxis={"showgrid": False},
+        yaxis={"title": "热度", "range": [0, 110], "showgrid": True, "gridcolor": "rgba(128,128,128,0.1)"},
+        margin=dict(l=20, r=20, t=40, b=60),
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Legend for significance colors
+    st.caption("🔴 引爆点  🟠 反转  🔵 升级  🟢 平息")
+
+
+def _render_communities_table(communities: list[dict]):
+    """Render a table showing communities and their perspectives."""
+    st.markdown("#### 🎯 圈层视角")
+
+    header = """
+    <div style="display:grid; grid-template-columns:1fr 1.5fr 1fr; gap:8px; padding:8px 12px;
+        border-bottom:1px solid rgba(128,128,128,0.15); font-size:12px; opacity:0.6; font-weight:600;">
+        <span>圈层</span><span>独特视角</span><span>倾向阵营</span>
+    </div>
+    """
+    st.markdown(header, unsafe_allow_html=True)
+
+    for c in communities:
+        st.markdown(f"""
+        <div style="display:grid; grid-template-columns:1fr 1.5fr 1fr; gap:8px; padding:6px 12px;
+            border-bottom:1px solid rgba(128,128,128,0.05); font-size:13px;">
+            <strong>{c.get('name', '')}</strong>
+            <span style="opacity:0.8;">{c.get('perspective', '')}</span>
+            <span style="opacity:0.6;">→ {c.get('aligned_camp', '—')}</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+
+def _save_insight_report(topic: str, report: str, insight_data: dict):
+    """Save an insight-mode report to persistence."""
+    try:
+        from utils.persistence import save_report
+        save_report(topic, report, truth_prob=50.0)
+    except Exception as e:
+        logger.warning(f"Failed to save insight report: {e}")
 
 
 # ============================================================
@@ -409,7 +1160,16 @@ def _render_controversy_dashboard(report: str, topic: str):
     with col_l:
         truth_probability_gauge(truth_prob)
     with col_r:
-        sentiment_bar_chart(_extract_sentiment(report))
+        sentiment_data = _extract_sentiment(report)
+        if sentiment_data:
+            sentiment_bar_chart(sentiment_data)
+        else:
+            st.markdown("""
+            <div style="text-align:center; padding:60px 20px; opacity:0.4;">
+                <p>评论区情绪分布</p>
+                <p style="font-size:13px;">暂无数据</p>
+            </div>
+            """, unsafe_allow_html=True)
 
 
 def _render_info_dashboard(topic: str, search_results: list[dict]):
@@ -454,7 +1214,7 @@ def _extract_sentiment(report: str) -> dict:
         match = re.search(pat, report)
         if match:
             sentiment[key] = int(match.group(1)) / 100
-    return sentiment if sentiment else {"angry": 0.30, "fearful": 0.20, "neutral": 0.25, "supportive": 0.15, "sarcastic": 0.10}
+    return sentiment  # Return only extracted values; empty dict = no data
 
 
 # ============================================================

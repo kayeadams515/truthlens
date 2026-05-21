@@ -87,9 +87,12 @@ DEFAULT_SEARCH_DOMAINS = {
     "凤凰网": "ifeng.com",
     "观察者网": "guancha.cn",
     "财新": "caixin.com",
-    # 中文社交平台
+    # 中文社交与社区平台
     "抖音": "douyin.com",
     "小红书": "xiaohongshu.com",
+    "B站": "bilibili.com",
+    "百度贴吧": "tieba.baidu.com",
+    "豆瓣": "douban.com",
     # 国际媒体
     "BBC": "bbc.com",
     "CNN": "cnn.com",
