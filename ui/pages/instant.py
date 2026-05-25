@@ -281,6 +281,7 @@ def _run_insight_mode(topic: str, guidance: str = ""):
         st.session_state.current_insight_report = report
         st.session_state.current_insight_data = opinion_data
 
+        _save_insight_report(topic, report, opinion_data)
         _display_insight_result(topic, report, opinion_data)
 
     except Exception as e:
@@ -435,7 +436,7 @@ def _synthesize_insight_report(topic: str, opinion_data: dict, search_results: l
     """LLM Call 2: Synthesize opinion data into a natural narrative report.
     No rigid template — writes like a social observation article.
     """
-    if not is_any_llm_configured() or not opinion_data.get("camps"):
+    if not is_any_llm_configured():
         return _template_insight_report(topic, opinion_data)
 
     from config import create_integration_llm
@@ -568,9 +569,6 @@ def _display_insight_result(topic: str, report: str, insight_data: dict):
 
     # Dashboard
     _render_insight_dashboard(insight_data, topic)
-
-    # Save
-    _save_insight_report(topic, report, insight_data)
 
     # Follow-up Q&A
     _render_followup_qa(topic, report, mode="insight")
@@ -971,6 +969,7 @@ def _run_info_mode(topic: str):
     st.session_state.current_summary = summary
     st.session_state.current_search_results = search_results
 
+    _save_report(topic, summary)
     _display_info_result(topic, summary, search_results)
 
 
@@ -1012,7 +1011,6 @@ def _display_info_result(topic: str, summary: str, search_results: list):
                 st.caption(url)
 
     _render_info_dashboard(topic, search_results)
-    _save_report(topic, summary)
     _render_followup_qa(topic, summary, mode="info")
 
     # ---- Controversy Analysis Upgrade ----
