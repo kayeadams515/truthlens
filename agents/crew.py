@@ -14,6 +14,8 @@ from utils.i18n import t
 
 def _build_tasks(
     topic: str,
+    controversy_angle: str,
+    existing_info: str,
     scout,
     challenger,
     judge,
@@ -21,17 +23,33 @@ def _build_tasks(
 ) -> list[Task]:
     """Build the 4 sequential tasks for the debate pipeline."""
 
+    has_angle = bool(controversy_angle.strip()) if controversy_angle else False
+
     # ---- Task 1: Scout gathers raw intelligence ----
+    if has_angle:
+        scout_desc = t("task.crew.scout.with_angle", topic=topic, controversy_angle=controversy_angle, existing_info=existing_info)
+        scout_expected = t("task.crew.scout.with_angle.expected")
+    else:
+        scout_desc = t("task.crew.scout", topic=topic)
+        scout_expected = t("task.crew.scout.expected")
+
     task_scout = Task(
-        description=t("task.crew.scout", topic=topic),
-        expected_output=t("task.crew.scout.expected"),
+        description=scout_desc,
+        expected_output=scout_expected,
         agent=scout,
     )
 
     # ---- Task 2: Challenger cross-examines the intel ----
+    if has_angle:
+        challenger_desc = t("task.crew.challenger.focused", controversy_angle=controversy_angle)
+        challenger_expected = t("task.crew.challenger.focused.expected")
+    else:
+        challenger_desc = t("task.crew.challenger")
+        challenger_expected = t("task.crew.challenger.expected")
+
     task_challenger = Task(
-        description=t("task.crew.challenger"),
-        expected_output=t("task.crew.challenger.expected"),
+        description=challenger_desc,
+        expected_output=challenger_expected,
         agent=challenger,
         context=[task_scout],
     )
@@ -55,16 +73,18 @@ def _build_tasks(
     return [task_scout, task_challenger, task_judge, task_editor]
 
 
-def run_analysis(topic: str) -> str:
+def run_analysis(topic: str, controversy_angle: str = "", existing_info: str = "") -> str:
     """Run the full 4-agent debate pipeline on a given topic.
 
     Args:
         topic: The news event or topic to analyze.
+        controversy_angle: Optional user-specified controversy angle to focus on.
+        existing_info: Optional existing search results from info mode.
 
     Returns:
         The final structured Markdown report from the Editor agent.
     """
-    logger.info(f"Starting analysis pipeline for topic: {topic}")
+    logger.info(f"Starting analysis pipeline for topic: {topic}, has_angle: {bool(controversy_angle)}, has_existing_info: {bool(existing_info)}")
 
     # Create all agents
     scout = create_scout_agent()
@@ -73,7 +93,7 @@ def run_analysis(topic: str) -> str:
     editor = create_editor_agent()
 
     # Build tasks with proper context chaining
-    tasks = _build_tasks(topic, scout, challenger, judge, editor)
+    tasks = _build_tasks(topic, controversy_angle, existing_info, scout, challenger, judge, editor)
 
     # Assemble crew in sequential mode
     crew = Crew(

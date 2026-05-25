@@ -251,6 +251,23 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
     "⚔️ 启动争议分析": {"en": "⚔️ Launch Controversy Analysis"},
     "搜索失败：": {"en": "Search failed: "},
 
+    # Controversy angle input (info mode downstream)
+    "### ⚔️ 争议剖析": {"en": "### ⚔️ Controversy Analysis"},
+    "如果你对上述事件有疑问，请在下方输入你希望剖析的具体争议观点：": {
+        "en": "If you have questions about the event above, enter the specific controversy you want to analyze:"
+    },
+    "请输入你想剖析的争议点...": {"en": "Enter the controversy angle you want to examine..."},
+    "例如：甲方称赔偿3亿但财报显示仅1亿，真实金额是多少？": {
+        "en": "e.g., Party A claims 300M compensation but financials show 100M — what is the real figure?"
+    },
+    "⚔️ 开始争议剖析": {"en": "⚔️ Analyze Controversy"},
+    "🎯 剖析争议点：": {"en": "🎯 Analyzing Controversy:"},
+    "⚠️ 争议点与事件无关": {"en": "⚠️ Controversy unrelated to event"},
+    "你提出的争议点与当前事件似乎无关，请重新描述。": {
+        "en": "The controversy you raised seems unrelated to the current event. Please rephrase."
+    },
+    "正在验证争议点与事件的相关性...": {"en": "Validating controversy relevance to event..."},
+
     # Controversy mode
     "⚔️ 争议分析：": {"en": "⚔️ Controversy Analysis:"},
     "⚠️ 未配置 LLM API Key，无法运行争议分析。请在设置中配置 API Key。": {
@@ -741,6 +758,56 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         ),
     },
 
+    "task.crew.scout.with_angle": {
+        "zh": (
+            "用户关注的事件话题是：「{topic}」\n"
+            "用户特别关注的争议点：「{controversy_angle}」\n\n"
+            "以下是你已经掌握的该事件基本信息（来自资讯模式搜索）：\n"
+            "{existing_info}\n\n"
+            "请使用你的搜索工具，聚焦于用户提出的争议点，从以下维度深入搜集信息：\n"
+            "1. 搜索「{topic} {controversy_angle}」，获取与该争议点直接相关的官方通报、媒体报道、社交媒体讨论\n"
+            "2. 提取争议点相关的关键证据和时间节点\n"
+            "3. 识别各利益相关方对该争议点的具体立场和说辞\n"
+            "4. 选取社交媒体上对该争议点最具代表性的评论(包括不同情绪倾向的)\n\n"
+            "输出要求：用中文输出围绕该争议点的结构化情报汇编，包含：\n"
+            "- 争议点相关的5W1H信息\n"
+            "- 各方对该争议点的说法和证据(逐条列出，注明出处)\n"
+            "- 自媒体/KOL对该争议点的观点(逐条列出，注明发布者、可能的利益关联)\n"
+            "- 社交媒体代表性评论(至少5条，注明情绪倾向)\n"
+            "- 情绪分布统计\n\n"
+            "所有信息必须标注来源。请严格围绕用户提出的争议点搜集信息，不要发散到无关方面。"
+        ),
+        "en": (
+            "The user is interested in the event: \"{topic}\"\n"
+            "The user's specific controversy focus: \"{controversy_angle}\"\n\n"
+            "Here is the background information already gathered on this event (from info mode search):\n"
+            "{existing_info}\n\n"
+            "Use your search tool to dig deeper, FOCUSED on the user's controversy angle:\n"
+            "1. Search for \"{topic} {controversy_angle}\" to gather official statements, media reports, and social media discussions directly relevant to this angle\n"
+            "2. Extract key evidence and timeline nodes related to the controversy\n"
+            "3. Identify each stakeholder's specific position and narrative on this controversy angle\n"
+            "4. Select the most representative social media comments on this controversy (include different emotional tendencies)\n\n"
+            "Output: A structured intelligence dossier focused on the controversy angle, including:\n"
+            "- 5W1H information relevant to the controversy\n"
+            "- Each party's claims and evidence on this angle (list individually, cite sources)\n"
+            "- KOL/independent media viewpoints on this angle (list with publisher and potential interests)\n"
+            "- Representative social media comments (at least 5, note emotional tendency)\n"
+            "- Sentiment distribution statistics\n\n"
+            "All entries must cite sources. Stay strictly focused on the user's controversy angle — do not branch into unrelated areas."
+        ),
+    },
+    "task.crew.scout.with_angle.expected": {
+        "zh": (
+            "一份围绕争议点的结构化情报汇编，包含争议相关5W1H、各方说法与证据列表、"
+            "独立媒体观点列表、代表性社交媒体评论、以及情绪分布统计。所有条目标注来源。"
+        ),
+        "en": (
+            "A structured intelligence dossier focused on the controversy angle, containing 5W1H, "
+            "party claims and evidence list, independent media viewpoints, representative social media "
+            "comments, and sentiment distribution. All entries cite sources."
+        ),
+    },
+
     "task.crew.challenger": {
         "zh": (
             "情报官已经搜集了关于该事件的原始情报。现在请你发挥'杠精'本色，"
@@ -783,6 +850,54 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "en": (
             "A detailed cross-examination report containing credibility assessments, "
             "interest analyses, logical fallacy lists, and an information cross-verification matrix."
+        ),
+    },
+
+    "task.crew.challenger.focused": {
+        "zh": (
+            "情报官已经围绕用户提出的争议点「{controversy_angle}」搜集了情报。\n"
+            "现在请你发挥'杠精'本色，严格围绕该争议点进行交叉审查：\n\n"
+            "**审查维度：**\n"
+            "1. **信息一致性交叉验证**：将该争议点相关的不同说法进行比对，标记一致/不一致/无法验证。\n"
+            "2. **利益关联图绘制**：分析争议双方的动机——谁在推动哪种说法？为什么？\n"
+            "3. **逻辑谬误诊断**：逐一检查各方论证中的逻辑漏洞(稻草人、假两难、滑坡、诉诸情感、以偏概全等)。\n"
+            "4. **证据质量评估**：每一条与该争议点相关的证据，其可信度如何？来源是否可靠？\n"
+            "5. **反讽与潜台词解读**：识别阴阳怪气、高级黑、反串等隐性表达的真实含义。\n\n"
+            "**重要：严格围绕「{controversy_angle}」进行审查，不要发散到其他无关方面。**\n\n"
+            "**输出格式：**\n"
+            "对争议双方分别给出：\n"
+            "- 可信度评估(高/中/低 + 理由)\n"
+            "- 利益相关度分析\n"
+            "- 逻辑漏洞清单\n"
+            "- 与其他来源的信息交叉验证结果"
+        ),
+        "en": (
+            "The Scout has gathered intelligence focused on the user's controversy angle: \"{controversy_angle}\".\n"
+            "Now unleash your inner skeptic and conduct ruthless cross-examination STRICTLY focused on this angle:\n\n"
+            "**Review Dimensions:**\n"
+            "1. **Cross-verification**: Compare different narratives on this specific controversy angle — mark as consistent/inconsistent/unverifiable.\n"
+            "2. **Interest Network Mapping**: Analyze the motivations behind each side — who is pushing which narrative and why?\n"
+            "3. **Logical Fallacy Diagnosis**: Check each argument for reasoning flaws (strawman, false dilemma, slippery slope, appeal to emotion, hasty generalization, etc.).\n"
+            "4. **Evidence Quality Assessment**: For each piece of evidence related to this controversy, assess credibility and source reliability.\n"
+            "5. **Subtext & Sarcasm Decoding**: Identify passive-aggression, veiled mockery, and disguised stances.\n\n"
+            "**IMPORTANT: Stay strictly focused on \"{controversy_angle}\" — do not branch into unrelated topics.**\n\n"
+            "**Output Format:**\n"
+            "For each side of the controversy:\n"
+            "- Credibility assessment (High/Medium/Low + reasoning)\n"
+            "- Interest analysis\n"
+            "- Logical fallacy list\n"
+            "- Cross-verification results against other sources"
+        ),
+    },
+    "task.crew.challenger.focused.expected": {
+        "zh": (
+            "一份严格围绕争议点的交叉审查报告，包含双方可信度评估、利益相关度分析、"
+            "逻辑漏洞清单、以及信息交叉验证矩阵。"
+        ),
+        "en": (
+            "A detailed cross-examination report strictly focused on the controversy angle, containing "
+            "credibility assessments for both sides, interest analyses, logical fallacy lists, and an "
+            "information cross-verification matrix."
         ),
     },
 
@@ -1256,6 +1371,23 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
     # =========================================================================
     # utils/weekly_news.py
     # =========================================================================
+
+    "prompt.validate_controversy": {
+        "zh": (
+            "给定以下事件摘要和用户提出的争议观点，判断该争议观点是否与事件相关。\n\n"
+            "事件摘要：\n{summary}\n\n"
+            "用户争议观点：{angle}\n\n"
+            '返回 JSON：{{"relevant": true/false, "reason": "一句话中文理由"}}\n'
+            "只返回 JSON，不要其他内容。"
+        ),
+        "en": (
+            "Given the following event summary and a user's controversy angle, determine if the angle is related to the event.\n\n"
+            "Event summary:\n{summary}\n\n"
+            "Controversy angle: {angle}\n\n"
+            'Return JSON: {{"relevant": true/false, "reason": "one sentence reason in English"}}\n'
+            "Return only JSON, nothing else."
+        ),
+    },
 
     "prompt.weekly_news.classify": {
         "zh": (

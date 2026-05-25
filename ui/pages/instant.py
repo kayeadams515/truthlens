@@ -20,8 +20,11 @@ def render_instant():
         st.warning(t("⚠️ 未配置 LLM API Key，请在设置中配置后使用。搜索功能可独立使用。"))
 
     # Get topic and mode from session state
+    has_incoming_topic = "analyze_topic" in st.session_state
+    has_incoming_mode = "analyze_mode" in st.session_state
     incoming_topic = st.session_state.pop("analyze_topic", "")
     incoming_mode = st.session_state.pop("analyze_mode", "info")
+    incoming_controversy_angle = st.session_state.pop("controversy_angle", "")
 
     if incoming_topic:
         # New analysis requested — store in persistent key, clear old cache
@@ -33,11 +36,19 @@ def render_instant():
         st.session_state.pop("current_insight_report", None)
         st.session_state.pop("current_insight_data", None)
         st.session_state.pop("qa_history", None)
+        st.session_state.pop("current_controversy_angle", None)
+    elif has_incoming_mode and incoming_mode != st.session_state.get("current_mode", "info"):
+        # Mode switch on same topic (e.g., info → controversy via angle input)
+        st.session_state.current_mode = incoming_mode
+        st.session_state.pop("current_report", None)  # Clear old controversy report
+        if incoming_controversy_angle:
+            st.session_state.current_controversy_angle = incoming_controversy_angle
 
     topic = st.session_state.get("current_topic", "")
     mode = st.session_state.get("current_mode", "info")
     is_controversy = (mode == "controversy")
     is_insight = (mode == "insight")
+    controversy_angle = st.session_state.get("current_controversy_angle", "")
 
     if not topic:
         st.markdown(f"""
@@ -67,7 +78,7 @@ def render_instant():
     elif cached_summary and not is_controversy and not is_insight:
         _display_info_result(topic, cached_summary, cached_search or [])
     elif is_controversy:
-        _run_controversy_mode(topic)
+        _run_controversy_mode(topic, controversy_angle, cached_search or [])
     elif is_insight:
         _run_insight_mode(topic)
     else:
@@ -91,12 +102,31 @@ def render_instant():
 # Controversy Mode
 # ============================================================
 
-def _run_controversy_mode(topic: str):
+def _run_controversy_mode(topic: str, controversy_angle: str = "", info_search_results: list = None):
+    if info_search_results is None:
+        info_search_results = []
+
+    # Build existing info summary from info mode results
+    existing_info = ""
+    if info_search_results:
+        existing_info = "\n".join(
+            f"- {r.get('title', '')} | {r.get('source', '')}\n  {r.get('content', '')[:200]}"
+            for r in info_search_results[:8]
+        )
+
     st.markdown(f"""
     <div style="border:1px solid rgba(128,128,128,0.15); border-radius:8px; padding:16px; margin-bottom:20px;">
         <strong>{t("⚔️ 争议分析：")}</strong>{topic}
     </div>
     """, unsafe_allow_html=True)
+
+    if controversy_angle:
+        st.markdown(f"""
+        <div style="background:rgba(0,191,165,0.08); border-left:3px solid #00bfa5; border-radius:4px; padding:12px; margin-bottom:16px;">
+            <small style="opacity:0.7;">{t("🎯 剖析争议点：")}</small><br>
+            <strong>{controversy_angle}</strong>
+        </div>
+        """, unsafe_allow_html=True)
 
     if not is_any_llm_configured():
         st.error(t("⚠️ 未配置 LLM API Key，无法运行争议分析。请在设置中配置 API Key。"))
@@ -108,7 +138,7 @@ def _run_controversy_mode(topic: str):
         st.write(t("⏳ 预计耗时 30-90 秒，请耐心等待"))
 
         start_time = datetime.now()
-        report = _run_live_analysis(topic)
+        report = _run_live_analysis(topic, controversy_angle, existing_info)
         elapsed = (datetime.now() - start_time).total_seconds()
 
         if report is None:
@@ -480,12 +510,28 @@ def _display_insight_result(topic: str, report: str, insight_data: dict):
 
     # Upgrade to full controversy analysis
     st.divider()
-    st.markdown(f"### {t('### ⚔️ 需要更深度的事实核查？').lstrip('#').strip()}")
-    st.caption(t("启动 4-Agent 辩论流水线，交叉验证各方说辞，计算真相概率。适合需要核实事实的争议事件。"))
-    if st.button(t("⚔️ 启动争议分析"), type="primary", use_container_width=True, key="insight_upgrade"):
-        st.session_state.analyze_topic = topic
-        st.session_state.analyze_mode = "controversy"
-        st.rerun()
+    st.markdown(t("### ⚔️ 争议剖析"))
+    st.caption(t("如果你对上述事件有疑问，请在下方输入你希望剖析的具体争议观点："))
+    user_angle = st.text_area(
+        t("请输入你想剖析的争议点..."),
+        placeholder=t("例如：甲方称赔偿3亿但财报显示仅1亿，真实金额是多少？"),
+        label_visibility="collapsed",
+        key=f"insight_controversy_angle_{topic[:20]}",
+    )
+    if st.button(t("⚔️ 开始争议剖析"), type="primary", use_container_width=True, key="insight_upgrade"):
+        if not user_angle.strip():
+            st.warning(t("请输入你想剖析的争议点"))
+        elif not is_any_llm_configured():
+            st.error(t("⚠️ 未配置 LLM API Key，无法运行争议分析。请在设置中配置 API Key。"))
+        else:
+            with st.spinner(t("正在验证争议点与事件的相关性...")):
+                is_relevant, reason = _validate_controversy_angle(topic, report, user_angle.strip())
+            if is_relevant:
+                st.session_state.analyze_mode = "controversy"
+                st.session_state.controversy_angle = user_angle.strip()
+                st.rerun()
+            else:
+                st.warning(f"{t('⚠️ 争议点与事件无关')}：{reason}\n\n{t('你提出的争议点与当前事件似乎无关，请重新描述。')}")
 
 
 def _render_insight_dashboard(insight_data: dict, topic: str):
@@ -881,13 +927,52 @@ def _display_info_result(topic: str, summary: str, search_results: list):
     _save_report(topic, summary)
     _render_followup_qa(topic, summary, mode="info")
 
+    # ---- Controversy Analysis Upgrade ----
     st.divider()
-    st.markdown(f"### {t('### ⚔️ 需要深度分析？').lstrip('#').strip()}")
-    st.caption(t("启动 4-Agent 辩论流水线，交叉验证各方说辞，计算真相概率。"))
-    if st.button(t("⚔️ 启动争议分析"), type="primary", use_container_width=True):
-        st.session_state.analyze_topic = topic
-        st.session_state.analyze_mode = "controversy"
-        st.rerun()
+    st.markdown(t("### ⚔️ 争议剖析"))
+    st.caption(t("如果你对上述事件有疑问，请在下方输入你希望剖析的具体争议观点："))
+    user_angle = st.text_area(
+        t("请输入你想剖析的争议点..."),
+        placeholder=t("例如：甲方称赔偿3亿但财报显示仅1亿，真实金额是多少？"),
+        label_visibility="collapsed",
+        key=f"controversy_angle_input_{topic[:20]}",
+    )
+    if st.button(t("⚔️ 开始争议剖析"), type="primary", use_container_width=True):
+        if not user_angle.strip():
+            st.warning(t("请输入你想剖析的争议点"))
+        elif not is_any_llm_configured():
+            st.error(t("⚠️ 未配置 LLM API Key，无法运行争议分析。请在设置中配置 API Key。"))
+        else:
+            with st.spinner(t("正在验证争议点与事件的相关性...")):
+                is_relevant, reason = _validate_controversy_angle(topic, summary, user_angle.strip())
+            if is_relevant:
+                st.session_state.analyze_mode = "controversy"
+                st.session_state.controversy_angle = user_angle.strip()
+                st.rerun()
+            else:
+                st.warning(f"{t('⚠️ 争议点与事件无关')}：{reason}\n\n{t('你提出的争议点与当前事件似乎无关，请重新描述。')}")
+
+
+def _validate_controversy_angle(topic: str, summary: str, angle: str) -> tuple[bool, str]:
+    """Check if the user's controversy angle is related to the event. Returns (is_relevant, reason)."""
+    try:
+        from config import create_search_llm
+        llm = create_search_llm(temperature=0.0)
+        result = llm.call(messages=[{"role": "user", "content": t(
+            "prompt.validate_controversy", summary=summary[:1500], angle=angle
+        )}])
+        result = result.strip()
+        if result.startswith("```"):
+            lines = result.split("\n")
+            result = "\n".join(lines[1:]) if len(lines) > 1 else result
+            if result.endswith("```"):
+                result = result[:-3]
+        import json
+        data = json.loads(result)
+        return data.get("relevant", False), data.get("reason", "")
+    except Exception:
+        # If validation fails (e.g. no LLM), allow the analysis to proceed
+        return True, ""
 
 
 # ============================================================
@@ -1003,10 +1088,10 @@ def _summarize_info(topic: str, search_results: list[dict]) -> str:
 # Live / Mock Analysis (Controversy Mode)
 # ============================================================
 
-def _run_live_analysis(topic: str) -> str | None:
+def _run_live_analysis(topic: str, controversy_angle: str = "", existing_info: str = "") -> str | None:
     try:
         from agents.crew import run_analysis
-        report = run_analysis(topic)
+        report = run_analysis(topic, controversy_angle, existing_info)
         return str(report)
     except Exception as e:
         logger.error(f"Live analysis failed: {e}")
