@@ -106,6 +106,27 @@ docker run -p 8501:8501 truthlens
 | SearXNG | 需自建实例 | 不支持 | 自托管元搜索引擎 |
 | Reddit | 否 | — | 公共 API，海外社区舆论 |
 
+## 更新
+
+```bash
+cd TruthLens
+git pull
+pip install -r requirements.txt
+```
+
+如果 DuckDuckGo 搜索报错，旧版 `duckduckgo_search` 已被重命名为 `ddgs`：
+
+```bash
+pip uninstall duckduckgo_search -y
+pip install ddgs
+```
+
+桌面应用重新构建：
+
+```bash
+./scripts/build.sh
+```
+
 ## 项目结构
 
 ```
