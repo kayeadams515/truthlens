@@ -53,27 +53,53 @@ def _search_duckduckgo(query: str, cfg: dict, max_results: int = 10,
     # DuckDuckGo does not support domain filtering via site: syntax — it causes timeouts.
     # Domains are ignored for this provider.
     import re
-    results = []
+
+    # Import DDGS: prefer ddgs (v9+), fall back to duckduckgo_search (v8)
     try:
+        from ddgs import DDGS
+    except ImportError:
         try:
-            from ddgs import DDGS
-        except ImportError:
             from duckduckgo_search import DDGS
-        # Set region for Chinese queries to get locale-relevant results
-        ddgs_kwargs = {"max_results": max_results}
-        if re.search(r'[一-鿿]', query):
-            ddgs_kwargs["region"] = "cn-zh"
+        except ImportError:
+            raise RuntimeError(
+                "DuckDuckGo: ddgs not installed. Run: pip install ddgs"
+            )
+
+    results = []
+    # Build kwargs, trying region first (may not be supported by older versions)
+    text_kwargs: dict = {"max_results": max_results}
+    if re.search(r'[一-鿿]', query):
+        text_kwargs["region"] = "cn-zh"
+
+    try:
         with DDGS() as ddgs:
-            for r in ddgs.text(query, **ddgs_kwargs):
+            for r in ddgs.text(query, **text_kwargs):
                 results.append({
                     "title": r.get("title", ""),
                     "url": r.get("href", ""),
                     "content": r.get("body", ""),
                     "source": "",
                 })
+    except TypeError:
+        # Older duckduckgo_search may not accept region or max_results as kwargs;
+        # retry with only the query string
+        logger.debug("DuckDuckGo text() rejected kwargs, retrying with query only")
+        try:
+            with DDGS() as ddgs:
+                for r in ddgs.text(query, max_results=max_results):
+                    results.append({
+                        "title": r.get("title", ""),
+                        "url": r.get("href", ""),
+                        "content": r.get("body", ""),
+                        "source": "",
+                    })
+        except Exception as e:
+            logger.warning(f"DuckDuckGo search failed: {e}")
+            raise RuntimeError(f"DuckDuckGo: {e}") from e
     except Exception as e:
         logger.warning(f"DuckDuckGo search failed: {e}")
         raise RuntimeError(f"DuckDuckGo: {e}") from e
+
     return results
 
 
