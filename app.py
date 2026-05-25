@@ -577,7 +577,7 @@ def _settings_dialog():
         st.caption(t("语言 / Language"))
     with col_lang_sel:
         selected_lang = st.selectbox(
-            "",
+            t("语言 / Language"),
             lang_options,
             index=current_lang_idx,
             key="settings_lang_selector",

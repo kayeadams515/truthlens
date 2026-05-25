@@ -55,50 +55,57 @@ def _search_duckduckgo(query: str, cfg: dict, max_results: int = 10,
     import re
 
     # Import DDGS: prefer ddgs (v9+), fall back to duckduckgo_search (v8)
+    DDGS = None
+    import_errors = []
     try:
         from ddgs import DDGS
-    except ImportError:
+    except ImportError as e:
+        import_errors.append(f"ddgs: {e}")
+    if DDGS is None:
         try:
             from duckduckgo_search import DDGS
-        except ImportError:
-            raise RuntimeError(
-                "DuckDuckGo: ddgs not installed. Run: pip install ddgs"
-            )
+        except ImportError as e:
+            import_errors.append(f"duckduckgo_search: {e}")
+    if DDGS is None:
+        raise RuntimeError(
+            "DuckDuckGo: neither ddgs nor duckduckgo_search is installed. "
+            "Run: pip install ddgs"
+        )
 
     results = []
-    # Build kwargs, trying region first (may not be supported by older versions)
     text_kwargs: dict = {"max_results": max_results}
     if re.search(r'[一-鿿]', query):
         text_kwargs["region"] = "cn-zh"
 
+    def _collect(iterator):
+        for r in iterator:
+            results.append({
+                "title": r.get("title", ""),
+                "url": r.get("href", ""),
+                "content": r.get("body", ""),
+                "source": "",
+            })
+
     try:
         with DDGS() as ddgs:
-            for r in ddgs.text(query, **text_kwargs):
-                results.append({
-                    "title": r.get("title", ""),
-                    "url": r.get("href", ""),
-                    "content": r.get("body", ""),
-                    "source": "",
-                })
+            _collect(ddgs.text(query, **text_kwargs))
     except TypeError:
-        # Older duckduckgo_search may not accept region or max_results as kwargs;
-        # retry with only the query string
         logger.debug("DuckDuckGo text() rejected kwargs, retrying with query only")
         try:
             with DDGS() as ddgs:
-                for r in ddgs.text(query, max_results=max_results):
-                    results.append({
-                        "title": r.get("title", ""),
-                        "url": r.get("href", ""),
-                        "content": r.get("body", ""),
-                        "source": "",
-                    })
+                _collect(ddgs.text(query, max_results=max_results))
         except Exception as e:
             logger.warning(f"DuckDuckGo search failed: {e}")
             raise RuntimeError(f"DuckDuckGo: {e}") from e
     except Exception as e:
         logger.warning(f"DuckDuckGo search failed: {e}")
         raise RuntimeError(f"DuckDuckGo: {e}") from e
+
+    if not results:
+        logger.warning(
+            f"DuckDuckGo returned 0 results for '{query[:60]}'. "
+            "This may indicate network issues or DuckDuckGo being unreachable."
+        )
 
     return results
 
