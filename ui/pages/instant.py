@@ -1461,22 +1461,32 @@ def _disambiguate_topic(topic: str) -> str | None:
     try:
         from config import get_active_domains
         from utils.search_providers import search as provider_search
+        from utils.search import _filter_results
         results = provider_search(
             query=topic, max_results=6, domains=get_active_domains(),
             search_depth="basic", topic="news",
         )
+        results = _filter_results(results)
     except Exception:
         return topic
 
     if len(results) < 2:
         return topic
 
-    # Quick similarity check: if top result title contains most of the topic words, it's specific
+    # Quick similarity check: if top result title contains most of the topic, it's specific
     top_title = results[0].get("title", "")
-    topic_words = set(topic.replace("，", " ").replace(",", " ").split())
-    match_words = sum(1 for w in topic_words if w in top_title)
-    if len(topic_words) >= 2 and match_words >= len(topic_words) * 0.5:
-        return topic  # Good enough match, don't bother with LLM
+    has_cjk = any('一' <= c <= '鿿' for c in topic)
+
+    if has_cjk:
+        # For Chinese: topic is usually a continuous phrase;
+        # if title contains the full topic string, it's a strong match
+        if topic in top_title:
+            return topic
+    else:
+        topic_words = set(topic.replace("，", " ").replace(",", " ").split())
+        match_words = sum(1 for w in topic_words if w in top_title)
+        if len(topic_words) >= 2 and match_words >= len(topic_words) * 0.5:
+            return topic  # Good enough match, don't bother with LLM
 
     # Only run LLM check when results are clearly divergent
     titles = "\n".join(f"{i+1}. {r.get('title', '')}" for i, r in enumerate(results))
