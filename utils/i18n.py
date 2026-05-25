@@ -1849,8 +1849,8 @@ def init_language():
     if "lang" not in st.session_state:
         try:
             import json
-            from pathlib import Path
-            settings_file = Path(__file__).parent.parent / "data" / "settings.json"
+            from utils.paths import get_data_dir
+            settings_file = get_data_dir() / "settings.json"
             if settings_file.exists():
                 saved = json.loads(settings_file.read_text(encoding="utf-8"))
                 st.session_state.lang = saved.get("language", "zh")

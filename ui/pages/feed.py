@@ -95,10 +95,10 @@ def render_feed():
         if st.button(t("🔄 刷新"), key="refresh_cn", use_container_width=True):
             st.session_state.weekly_news_loaded = False
             # Also bust the file cache so fetch_weekly_hot_news re-searches
-            import os
-            cache_file = "data/weekly_news_cache.json"
-            if os.path.exists(cache_file):
-                os.remove(cache_file)
+            from utils.paths import get_data_dir
+            cache_file = get_data_dir() / "weekly_news_cache.json"
+            if cache_file.exists():
+                cache_file.unlink()
             st.rerun()
     if china_news:
         _render_news_grid(china_news, "cn")

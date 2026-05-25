@@ -7,8 +7,9 @@ from pathlib import Path
 from typing import Optional
 
 from utils.logger import logger
+from utils.paths import get_data_dir
 
-DATA_DIR = Path(__file__).parent.parent / "data" / "reports"
+DATA_DIR = get_data_dir() / "reports"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 

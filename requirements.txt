@@ -18,6 +18,9 @@ pyinstaller>=6.0.0
 # UI Enhancements
 plotly>=5.18.0
 
+# Desktop packaging
+pywebview>=5.0
+
 # Utilities
 python-dotenv>=1.0.0
 loguru>=0.7.0

@@ -11,8 +11,9 @@ from ui.styles import apply_theme
 from ui.pages.feed import render_feed
 from ui.pages.instant import render_instant
 from utils.i18n import t, init_language
+from utils.paths import get_data_dir
 
-SETTINGS_FILE = Path(__file__).parent / "data" / "settings.json"
+SETTINGS_FILE = get_data_dir() / "settings.json"
 
 LLM_SETTING_KEYS = ["provider", "model", "api_key", "base_url"]
 
@@ -99,6 +100,7 @@ def main():
     # ---- First-run: language selection ----
     if "lang" not in st.session_state:
         _language_selection_dialog()
+        st.stop()  # Wait for user to pick language before showing anything else
 
     # ---- First-run onboarding ----
     if "onboarding_skipped" not in st.session_state:

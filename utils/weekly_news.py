@@ -7,8 +7,9 @@ from pathlib import Path
 from config import is_any_llm_configured
 from utils.logger import logger
 from utils.i18n import t
+from utils.paths import get_data_dir
 
-CACHE_FILE = Path(__file__).parent.parent / "data" / "weekly_news_cache.json"
+CACHE_FILE = get_data_dir() / "weekly_news_cache.json"
 
 
 
