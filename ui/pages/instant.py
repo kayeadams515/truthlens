@@ -567,8 +567,9 @@ def _display_insight_result(topic: str, report: str, insight_data: dict):
     st.markdown(report, unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # Dashboard
-    _render_insight_dashboard(insight_data, topic)
+    # Dashboard — only show when camps are identified
+    if insight_data.get("camps"):
+        _render_insight_dashboard(insight_data, topic)
 
     # Follow-up Q&A
     _render_followup_qa(topic, report, mode="insight")

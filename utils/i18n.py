@@ -1398,7 +1398,8 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
             "- 根据话题类型选择语调：梗可以轻松有趣，争议需冷静克制，事件要求准确清晰\n"
             "- 引用代表性言论增加现场感\n"
             "- 可以锐利但不偏激，避免学术腔和说教感\n"
-            "- 如果话题本身没什么争议性，就不要强行制造对立"
+            "- 如果话题本身没什么争议性，就不要强行制造对立\n"
+            "- ⚠️ 绝对不要提及或评论「分析数据」「搜索结果」「提供的数据」「数据缺失」「数据质量」等元信息。你不是在写数据分析报告，你是在写一篇面向读者的文章。数据只是你的参考素材，不是你的写作对象。"
         ),
         "en": (
             "You are a social observer deeply versed in internet culture. Write an insight report about「{topic}」.\n\n"
@@ -1438,7 +1439,8 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
             "- Adapt tone to topic type: memes can be light and fun, controversies need restraint, events demand clarity\n"
             "- Quote representative voices for authenticity\n"
             "- Sharp insights welcome but don't take sides emotionally\n"
-            "- If the topic has no real controversy, don't force one"
+            "- If the topic has no real controversy, don't force one\n"
+            "- ⚠️ NEVER mention or comment on \"analysis data\", \"search results\", \"provided data\", \"data missing\", or \"data quality\". You are writing an article for readers, not a data analysis report. The data is your reference material, not your subject."
         ),
     },
 
