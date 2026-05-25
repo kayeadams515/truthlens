@@ -24,7 +24,7 @@ RSS_FEEDS: list[dict] = [
      "name": "BBC中文", "region": "china"},
     {"id": "people_daily",  "url": "http://www.people.com.cn/rss/politics.xml",
      "name": "人民网", "region": "china"},
-    {"id": "chinanews",     "url": "http://www.chinanews.com.cn/rss/scroll-news.xml",
+    {"id": "chinanews",     "url": "http://www.chinanews.com.cn/rss/china.xml",
      "name": "中国新闻网", "region": "china"},
     {"id": "xinhua_world",  "url": "http://www.xinhuanet.com/world/news_world.xml",
      "name": "新华网国际", "region": "china"},
@@ -172,11 +172,11 @@ def _fetch_one_feed(feed_def: dict) -> list[dict]:
         )
         resp.raise_for_status()
 
-        content = resp.text
-        if not content.strip():
+        content_bytes = resp.content
+        if not content_bytes.strip():
             return []
 
-        root = ElementTree.fromstring(content)
+        root = ElementTree.fromstring(content_bytes)
 
         # Detect feed type
         tag = root.tag.lower()

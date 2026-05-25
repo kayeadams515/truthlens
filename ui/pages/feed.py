@@ -5,14 +5,15 @@ import streamlit as st
 from utils.logger import logger
 from utils.persistence import load_reports
 from utils.weekly_news import fetch_weekly_hot_news
+from utils.i18n import t
 
 
 def render_feed():
     """Render the discovery feed page with search bar at top."""
-    st.markdown("""
+    st.markdown(f"""
     <div style="text-align:center; margin-bottom:24px;">
-        <h2>📡 发现·透视报告</h2>
-        <p style="opacity:0.6;">搜索新闻 · 本周热点 · 历史报告</p>
+        <h2>{t("📡 发现·透视报告")}</h2>
+        <p style="opacity:0.6;">{t("搜索新闻 · 本周热点 · 历史报告")}</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -22,35 +23,34 @@ def render_feed():
     col1, col2, col3 = st.columns([4, 1, 1])
     with col1:
         topic = st.text_input(
-            "🔍 输入你想透视的新闻事件",
-            placeholder="输入新闻关键词或粘贴链接...",
+            t("🔍 输入你想透视的新闻事件"),
+            placeholder=t("输入新闻关键词或粘贴链接..."),
             label_visibility="collapsed",
             key="feed_search_input",
         )
     with col2:
-        mode = st.selectbox(
-            "分析模式",
-            ["📋 资讯模式", "⚔️ 争议模式", "🧬 争议洞察"],
+        mode_options = ["info", "controversy", "insight"]
+        mode_labels = {
+            "info": t("📋 资讯模式"),
+            "controversy": t("⚔️ 争议模式"),
+            "insight": t("🧬 争议洞察"),
+        }
+        selected_mode = st.selectbox(
+            t("分析模式"),
+            mode_options,
+            format_func=lambda x: mode_labels[x],
             label_visibility="collapsed",
             key="feed_search_mode",
         )
     with col3:
-        search_btn = st.button("🔍 开始透视", use_container_width=True, type="primary", key="feed_search_btn")
-
-    # Exact mode matching (avoid "争议" substring matching "争议洞察")
-    if mode == "🧬 争议洞察":
-        selected_mode = "insight"
-    elif mode == "⚔️ 争议模式":
-        selected_mode = "controversy"
-    else:
-        selected_mode = "info"
+        search_btn = st.button(t("🔍 开始透视"), use_container_width=True, type="primary", key="feed_search_btn")
 
     if selected_mode == "insight":
-        st.caption("🧬 争议洞察：社交媒体舆论阵营深度分析，适合吃瓜、八卦、热门话题。约 20-40 秒。")
+        st.caption(t("🧬 争议洞察：社交媒体舆论阵营深度分析，适合吃瓜、八卦、热门话题。约 20-40 秒。"))
     elif selected_mode == "controversy":
-        st.caption("⚔️ 争议模式：4-Agent 辩论流水线，深度交叉验证各方说辞，计算真相概率。约 30-90 秒。")
+        st.caption(t("⚔️ 争议模式：4-Agent 辩论流水线，深度交叉验证各方说辞，计算真相概率。约 30-90 秒。"))
     else:
-        st.caption("📋 资讯模式：快速搜集和梳理信息，展示事件全貌。")
+        st.caption(t("📋 资讯模式：快速搜集和梳理信息，展示事件全貌。"))
 
     if search_btn and topic.strip():
         st.session_state.analyze_topic = topic.strip()
@@ -65,7 +65,7 @@ def render_feed():
     # Weekly Hot News
     # ========================================
     if not st.session_state.get("weekly_news_loaded"):
-        with st.spinner("🔍 正在搜索本周热点新闻..."):
+        with st.spinner(t("🔍 正在搜索本周热点新闻...")):
             try:
                 weekly_data = fetch_weekly_hot_news()
             except Exception as e:
@@ -80,14 +80,14 @@ def render_feed():
     global_news = weekly_data.get("global", [])
 
     if weekly_data.get("error"):
-        st.warning(f"⚠️ 新闻获取失败：{weekly_data['error']}。请检查搜索配置或尝试切换 DuckDuckGo。")
+        st.warning(f"⚠️ {t('新闻获取失败')}：{weekly_data['error']}。{t('请检查搜索配置或尝试切换 DuckDuckGo。')}")
 
     # China news
     col_title, col_btn = st.columns([5, 1])
     with col_title:
-        st.markdown("### 🇨🇳 中国热点")
+        st.markdown(f"### {t('🇨🇳 中国热点')}")
     with col_btn:
-        if st.button("🔄 刷新", key="refresh_cn", use_container_width=True):
+        if st.button(t("🔄 刷新"), key="refresh_cn", use_container_width=True):
             st.session_state.weekly_news_loaded = False
             # Also bust the file cache so fetch_weekly_hot_news re-searches
             import os
@@ -98,15 +98,15 @@ def render_feed():
     if china_news:
         _render_news_grid(china_news, "cn")
     else:
-        st.caption("暂无数据")
+        st.caption(t("暂无数据"))
     st.divider()
 
     # Global news
-    st.markdown("### 🌍 全球热点")
+    st.markdown(f"### {t('🌍 全球热点')}")
     if global_news:
         _render_news_grid(global_news, "global")
     else:
-        st.caption("暂无数据")
+        st.caption(t("暂无数据"))
 
     # ========================================
     # History
@@ -114,31 +114,34 @@ def render_feed():
     saved_reports = load_reports(limit=20)
     if saved_reports:
         st.divider()
-        st.markdown("### 📋 历史透视报告")
+        st.markdown(f"### {t('📋 历史透视报告')}")
         for report in saved_reports:
-            truth_prob = report.get("truth_probability", 50)
+            truth_prob = report.get("truth_probability")
             summary = report.get("summary", "")[:120]
             generated = report.get("generated_at", "")[:10]
-            topic_text = report.get("topic", "未知事件")
-            prob_color = "#00bfa5" if truth_prob >= 60 else "#f0a500" if truth_prob >= 40 else "#dc3545"
+            topic_text = report.get("topic", t("未知事件"))
 
             col1, col2, col3 = st.columns([4, 1, 1])
             with col1:
                 st.markdown(f"""
                 <div class="cyber-card" style="padding:14px;">
-                    <span class="badge badge-official">已分析 · {generated}</span>
+                    <span class="badge badge-official">{t("已分析 · {generated}", generated=generated)}</span>
                     <strong>{topic_text}</strong>
                     <p style="opacity:0.6; font-size:13px; margin:4px 0;">{summary}...</p>
                 </div>
                 """, unsafe_allow_html=True)
             with col2:
-                st.markdown(f"""
-                <div style="text-align:center; padding-top:12px;">
-                    <span style="font-size:24px; font-weight:700; color:{prob_color};">{truth_prob}%</span>
-                </div>
-                """, unsafe_allow_html=True)
+                if truth_prob is not None:
+                    prob_color = "#00bfa5" if truth_prob >= 60 else "#f0a500" if truth_prob >= 40 else "#dc3545"
+                    st.markdown(f"""
+                    <div style="text-align:center; padding-top:12px;">
+                        <span style="font-size:24px; font-weight:700; color:{prob_color};">{truth_prob}%</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.caption(t("暂无数据"))
             with col3:
-                if st.button("📄 查看", key=f"saved_{report['id']}", use_container_width=True):
+                if st.button(t("📄 查看"), key=f"saved_{report['id']}", use_container_width=True):
                     st.session_state.view_report_id = report["id"]
                     st.rerun()
 
@@ -153,14 +156,14 @@ def render_feed():
 
                 # Dashboard for history
                 st.divider()
-                st.markdown("### 📊 数据透视")
+                st.markdown(f"### {t('📊 数据透视')}")
                 try:
                     from ui.pages.instant import _render_controversy_dashboard, _extract_sentiment
                     _render_controversy_dashboard(report_content, topic_text)
                 except Exception:
-                    st.caption("图表加载失败")
+                    st.caption(t("图表加载失败"))
 
-                if st.button("✕ 收起", key=f"close_{report['id']}"):
+                if st.button(t("✕ 收起"), key=f"close_{report['id']}"):
                     del st.session_state.view_report_id
                     st.rerun()
                 st.divider()
@@ -179,7 +182,8 @@ def _extract_location(item: dict) -> str:
     for loc in locations:
         if loc in text and loc not in found:
             found.append(loc)
-    return ", ".join(found[:3]) if found else "综合"
+    translated = [t(loc) for loc in found[:3]]
+    return ", ".join(translated) if translated else t("综合")
 
 
 def _extract_brief(item: dict) -> str:
@@ -205,12 +209,12 @@ def _render_news_grid(news_items: list[dict], prefix: str):
                 try:
                     _render_single_news_card(item, idx, prefix)
                 except Exception as e:
-                    st.error(f"渲染卡片失败: {e}")
+                    st.error(f"{t('渲染卡片失败')}: {e}")
 
 
 def _render_single_news_card(item: dict, idx: int, prefix: str):
     """Render a single news card with expand-to-reveal action buttons."""
-    title_cn = item.get("title_cn") or item.get("title", "未知")
+    title_cn = item.get("title_cn") or item.get("title", t("未知"))
     location = _extract_location(item)
     event_brief = _extract_brief(item)
 
@@ -227,23 +231,23 @@ def _render_single_news_card(item: dict, idx: int, prefix: str):
         st.session_state[selected_key] = False
 
     if not st.session_state[selected_key]:
-        if st.button("🔍 分析此事件", key=f"{prefix}_toggle_{idx}", use_container_width=True):
+        if st.button(t("🔍 分析此事件"), key=f"{prefix}_toggle_{idx}", use_container_width=True):
             st.session_state[selected_key] = True
             st.rerun()
     else:
-        if st.button("✕ 收起", key=f"{prefix}_toggle_{idx}", use_container_width=True):
+        if st.button(t("✕ 收起"), key=f"{prefix}_toggle_{idx}", use_container_width=True):
             st.session_state[selected_key] = False
             st.rerun()
         col_a, col_b = st.columns(2)
         with col_a:
-            if st.button("📋 资讯模式", key=f"{prefix}_info_{idx}", use_container_width=True):
+            if st.button(t("📋 资讯模式"), key=f"{prefix}_info_{idx}", use_container_width=True):
                 st.session_state.analyze_topic = title_cn
                 st.session_state.analyze_mode = "info"
                 st.session_state.from_feed = True
                 st.session_state.current_page = "instant"
                 st.rerun()
         with col_b:
-            if st.button("⚔️ 争议模式", key=f"{prefix}_cont_{idx}", use_container_width=True):
+            if st.button(t("⚔️ 争议模式"), key=f"{prefix}_cont_{idx}", use_container_width=True):
                 st.session_state.analyze_topic = title_cn
                 st.session_state.analyze_mode = "controversy"
                 st.session_state.from_feed = True

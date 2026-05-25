@@ -8,16 +8,14 @@ from typing import Optional
 from crewai.tools import BaseTool
 
 from utils.logger import logger
+from utils.i18n import t
 
 
 class TruthLensSearchTool(BaseTool):
     """Search tool that gathers multi-source intelligence on a given topic."""
 
     name: str = "truth_lens_search"
-    description: str = (
-        "搜索指定话题的全网信息，返回官方通报、自媒体观点、社交媒体评论等多源数据。"
-        "输入为话题关键词或URL链接。输出为结构化的JSON格式情报数据。"
-    )
+    description: str = t("tool.search.description")
 
     def _run(self, query: str) -> str:
         """Execute search and return structured results as JSON string."""
@@ -33,7 +31,7 @@ class TruthLensSearchTool(BaseTool):
         return json.dumps({
             "topic": query,
             "source": "error",
-            "error": "搜索失败：未配置搜索引擎 API Key 或搜索服务不可用。请在设置中配置搜索提供商。",
+            "error": t("tool.search.error"),
             "official_news": [],
             "we_media": [],
             "social_sentiment": [],

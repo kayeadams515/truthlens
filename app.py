@@ -10,6 +10,7 @@ from config import APP_TITLE, APP_ICON, APP_LAYOUT
 from ui.styles import apply_theme
 from ui.pages.feed import render_feed
 from ui.pages.instant import render_instant
+from utils.i18n import t, init_language
 
 SETTINGS_FILE = Path(__file__).parent / "data" / "settings.json"
 
@@ -40,6 +41,7 @@ def _save_settings():
     payload["search_domains"] = st.session_state.get("search_domains", {})
     payload["search_unrestricted"] = st.session_state.get("search_unrestricted", False)
     payload["llm_config_cache"] = st.session_state.get("llm_config_cache", {})
+    payload["language"] = st.session_state.get("lang", "zh")
     SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
     SETTINGS_FILE.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -54,6 +56,7 @@ def main():
     )
 
     # ---- Init session state ----
+    init_language()
     if "current_page" not in st.session_state:
         st.session_state.current_page = "feed"
     if "analyze_topic" not in st.session_state:
@@ -93,6 +96,10 @@ def main():
             "search_llm": None, "integration_llm": None, "search": None,
         }
 
+    # ---- First-run: language selection ----
+    if "lang" not in st.session_state:
+        _language_selection_dialog()
+
     # ---- First-run onboarding ----
     if "onboarding_skipped" not in st.session_state:
         st.session_state.onboarding_skipped = False
@@ -106,25 +113,25 @@ def main():
     apply_theme()
 
     # ---- Header ----
-    st.markdown("""
+    st.markdown(f"""
     <div style="text-align:center; padding:16px 0 24px 0;">
         <h1 style="font-size:2.4em; margin:0; font-weight:800;">
-            <span style="color:#00bfa5;">AI资讯透视镜</span>
+            <span style="color:#00bfa5;">{t("AI资讯透视镜")}</span>
         </h1>
         <p style="opacity:0.6; font-size:1em; margin-top:6px;">
-            Vision Lens — 穿透信息迷雾，还原事实本相
+            {t("Vision Lens — 穿透信息迷雾，还原事实本相")}
         </p>
     </div>
     """, unsafe_allow_html=True)
 
     # ---- Sidebar ----
     with st.sidebar:
-        st.markdown("### 📋 导航")
-        page_labels = ["🏠 首页", "📄 详情"]
+        st.markdown(t("### 📋 导航"))
+        page_labels = [t("🏠 首页"), t("📄 详情")]
         page_keys = ["feed", "instant"]
         current_idx = page_keys.index(st.session_state.current_page) if st.session_state.current_page in page_keys else 0
 
-        selected_label = st.radio("选择页面", page_labels, index=current_idx, label_visibility="collapsed")
+        selected_label = st.radio(t("选择页面"), page_labels, index=current_idx, label_visibility="collapsed")
         st.session_state.current_page = page_keys[page_labels.index(selected_label)]
 
         st.divider()
@@ -154,10 +161,9 @@ def main():
 
         st.markdown(f"""
         <div style="font-size:13px; opacity:0.7; line-height:2;">
-            <b>引擎：</b>4-Agent CrewAI 辩论<br>
-            <b>情报 LLM：</b>{_model_info("search_llm")} {_status_icon("search_llm")}<br>
-            <b>分析 LLM：</b>{_model_info("integration_llm")} {_status_icon("integration_llm")}<br>
-            <b>搜索：</b>{search_display} {_status_icon("search")}
+            <b>{t("情报 LLM：")}</b>{_model_info("search_llm")} {_status_icon("search_llm")}<br>
+            <b>{t("分析 LLM：")}</b>{_model_info("integration_llm")} {_status_icon("integration_llm")}<br>
+            <b>{t("搜索：")}</b>{search_display} {_status_icon("search")}
         </div>
         """, unsafe_allow_html=True)
         st.divider()
@@ -170,17 +176,17 @@ def main():
 
     # ---- Footer ----
     st.divider()
-    st.markdown("""
+    st.markdown(f"""
     <div style="text-align:center; padding:16px; opacity:0.5; font-size:12px;">
-        AI资讯透视镜 Vision Lens v0.3.0 · 4-Agent CrewAI 辩论引擎<br>
-        分析结果仅供参考，事实性信息请以官方发布为准
+        Vision Lens v0.3.0<br>
+        {t("分析结果仅供参考，事实性信息请以官方发布为准")}
     </div>
     """, unsafe_allow_html=True)
 
     # ---- Settings button (rendered in sidebar) ----
     with st.sidebar:
         st.divider()
-        if st.button("⚙️ 设置", use_container_width=True):
+        if st.button(t("⚙️ 设置"), use_container_width=True):
             st.session_state._trigger_settings = True
             st.rerun()
 
@@ -269,7 +275,7 @@ def _test_llm_connection(prefix: str):
     api_key = st.session_state.get(f"{prefix}_api_key", "")
     base_url = st.session_state.get(f"{prefix}_base_url", "")
     if not api_key:
-        return False, "未配置 API Key"
+        return False, t("未配置 API Key")
     try:
         from crewai import LLM
         kwargs = {"model": model, "api_key": api_key, "temperature": 0.0}
@@ -279,7 +285,7 @@ def _test_llm_connection(prefix: str):
             kwargs["provider"] = "openai"
         llm = LLM(**kwargs)
         resp = llm.call(messages=[{"role": "user", "content": "Say OK"}])
-        return (True, "可用") if resp else (False, "返回为空")
+        return (True, t("可用")) if resp else (False, t("返回为空"))
     except Exception as e:
         return False, str(e)[:120]
 
@@ -290,22 +296,22 @@ def _test_search_connection():
         from utils.search_providers import search
         results = search(query="test", max_results=1, search_depth="basic", topic="news", days=1)
         if not results:
-            return False, "搜索无结果"
+            return False, t("搜索无结果")
         if results[0].get("error"):
             return False, results[0]["error"][:120]
-        return True, "可用"
+        return True, t("可用")
     except Exception as e:
         return False, str(e)[:120]
 
 
 def _render_llm_config_section(prefix: str, label: str):
     """Render provider/model/api_key inputs for one LLM slot."""
-    st.caption(f"配置 {label} 使用的 LLM")
+    st.caption(t("配置 {label} 使用的 LLM", label=label))
 
     current_provider = st.session_state.get(f"{prefix}_provider", "deepseek")
     provider_idx = PROVIDER_OPTIONS.index(current_provider) if current_provider in PROVIDER_OPTIONS else 0
     provider = st.selectbox(
-        "提供商",
+        t("提供商"),
         PROVIDER_OPTIONS,
         index=provider_idx,
         format_func=lambda x: PROVIDER_LABELS.get(x, x),
@@ -357,7 +363,7 @@ def _render_llm_config_section(prefix: str, label: str):
         select_idx = 0
 
     selected = st.selectbox(
-        "模型",
+        t("模型"),
         select_options,
         index=select_idx,
         key=f"settings_{prefix}_model_select",
@@ -365,34 +371,34 @@ def _render_llm_config_section(prefix: str, label: str):
 
     if selected == CUSTOM_MODEL_TOKEN:
         custom_val = st.text_input(
-            "自定义模型名称",
+            t("自定义模型名称"),
             value=current_model if is_custom else "",
             key=f"settings_{prefix}_model_custom",
-            placeholder="输入模型 ID，如 claude-sonnet-4-6",
+            placeholder=t("输入模型 ID，如 claude-sonnet-4-6"),
         )
         st.session_state[f"{prefix}_model"] = custom_val
     else:
         st.session_state[f"{prefix}_model"] = selected
 
     api_key_val = st.text_input(
-        "API Key",
+        t("API Key"),
         value=st.session_state.get(f"{prefix}_api_key", ""),
         type="password",
         key=f"settings_{prefix}_api_key",
-        placeholder="输入 API Key",
+        placeholder=t("输入 API Key"),
     )
     st.session_state[f"{prefix}_api_key"] = api_key_val
 
     base_url_val = st.text_input(
-        "Base URL（可选）",
+        t("Base URL（可选）"),
         value=st.session_state.get(f"{prefix}_base_url", ""),
         key=f"settings_{prefix}_base_url",
-        placeholder=defaults.get("base_url", "留空则使用默认地址"),
+        placeholder=defaults.get("base_url", t("留空则使用默认地址")),
     )
     st.session_state[f"{prefix}_base_url"] = base_url_val
 
 
-@st.dialog("⚙️ 设置", width="large")
+@st.dialog(t("⚙️ 设置"), width="large")
 def _settings_dialog():
     """Modal dialog for all app settings: domains, search LLM, integration LLM."""
     from config import DEFAULT_SEARCH_DOMAINS
@@ -409,7 +415,7 @@ def _settings_dialog():
     """, unsafe_allow_html=True)
 
     tab_domain, tab_scout, tab_integ = st.tabs([
-        "🌐 搜索域名", "🔍 情报 LLM", "🧠 分析 LLM",
+        t("🌐 搜索域名"), t("🔍 情报 LLM"), t("🧠 分析 LLM"),
     ])
 
     # ---- Tab 1: Search Provider + Domains ----
@@ -419,7 +425,7 @@ def _settings_dialog():
         current_provider = st.session_state.get("search_provider", "tavily")
         provider_idx = list(SEARCH_PROVIDERS.keys()).index(current_provider) if current_provider in SEARCH_PROVIDERS else 0
         provider = st.selectbox(
-            "搜索引擎",
+            t("搜索引擎"),
             list(SEARCH_PROVIDERS.keys()),
             index=provider_idx,
             format_func=lambda x: SEARCH_PROVIDERS.get(x, x),
@@ -446,7 +452,7 @@ def _settings_dialog():
                 placeholder="BSA...",
             )
             st.session_state.brave_api_key = api_key
-            st.caption("免费 2000 次/月，在 brave.com/search/api 申请")
+            st.caption(t("免费 2000 次/月，在 brave.com/search/api 申请"))
         elif provider == "serpapi":
             api_key = st.text_input(
                 "SerpAPI Key",
@@ -457,23 +463,23 @@ def _settings_dialog():
             st.session_state.serpapi_api_key = api_key
         elif provider == "searxng":
             base_url = st.text_input(
-                "SearXNG 实例地址",
+                t("SearXNG 实例地址"),
                 value=st.session_state.get("searxng_base_url", ""),
                 key="settings_searxng_base_url",
                 placeholder="https://searxng.example.com",
             )
             st.session_state.searxng_base_url = base_url
-            st.caption("需自行部署 SearXNG 实例")
+            st.caption(t("需自行部署 SearXNG 实例"))
         elif provider == "duckduckgo":
-            st.caption("DuckDuckGo 免费使用，无需 API Key。可能被限速。")
+            st.caption(t("DuckDuckGo 免费使用，无需 API Key。可能被限速。"))
 
         st.divider()
 
         # -- Domain filter --
-        st.caption("域名过滤（Tavily / Brave / SerpAPI 支持按域名搜索，DDGS / SearXNG 不支持）")
+        st.caption(t("域名过滤（Tavily / Brave / SerpAPI 支持按域名搜索，DDGS / SearXNG 不支持）"))
 
         unrestricted = st.checkbox(
-            "全量搜索（不限制域名）",
+            t("全量搜索（不限制域名）"),
             value=st.session_state.search_unrestricted,
             key="settings_unrestricted",
         )
@@ -503,21 +509,21 @@ def _settings_dialog():
 
             col_cn, col_en = st.columns(2)
             with col_cn:
-                st.caption("🇨🇳 官方媒体")
+                st.caption(t("🇨🇳 官方媒体"))
                 _render_site_checkboxes(cn_official)
-                st.caption("🇨🇳 门户资讯")
+                st.caption(t("🇨🇳 门户资讯"))
                 _render_site_checkboxes(cn_portal)
-                st.caption("🇨🇳 社交平台")
+                st.caption(t("🇨🇳 社交平台"))
                 _render_site_checkboxes(cn_social)
             with col_en:
-                st.caption("🌍 国际媒体")
+                st.caption(t("🌍 国际媒体"))
                 _render_site_checkboxes(en_media)
-                st.caption("🌍 社交平台")
+                st.caption(t("🌍 社交平台"))
                 _render_site_checkboxes(en_social)
 
-            st.caption(f"当前覆盖 {len(domains)} 个站点")
+            st.caption(t("当前覆盖 {count} 个站点", count=len(domains)))
 
-        if st.button("重置搜索域名为默认", use_container_width=True, key="settings_reset_domains"):
+        if st.button(t("重置搜索域名为默认"), use_container_width=True, key="settings_reset_domains"):
             st.session_state.search_domains = dict(DEFAULT_SEARCH_DOMAINS)
             st.session_state.search_unrestricted = False
             st.rerun()
@@ -525,8 +531,8 @@ def _settings_dialog():
         st.divider()
         col_st, col_ss = st.columns([1, 2])
         with col_st:
-            if st.button("🧪 测试搜索", key="test_search", use_container_width=True):
-                with st.spinner("正在测试搜索连接..."):
+            if st.button(t("🧪 测试搜索"), key="test_search", use_container_width=True):
+                with st.spinner(t("正在测试搜索连接...")):
                     ok, msg = _test_search_connection()
                     st.session_state.llm_test_results["search"] = True if ok else msg
         with col_ss:
@@ -534,13 +540,13 @@ def _settings_dialog():
 
     # ---- Tab 2: Scout LLM ----
     with tab_scout:
-        st.caption("情报 LLM 用于情报官 (Scout) Agent 的信息搜集、相关性过滤与话题消歧。")
-        _render_llm_config_section("search_llm", "情报")
+        st.caption(t("情报 LLM 用于情报官 (Scout) Agent 的信息搜集、相关性过滤与话题消歧。"))
+        _render_llm_config_section("search_llm", t("情报"))
         st.divider()
         col_test1, col_status1 = st.columns([1, 2])
         with col_test1:
-            if st.button("🧪 测试连接", key="test_search_llm", use_container_width=True):
-                with st.spinner("正在测试情报 LLM 连接..."):
+            if st.button(t("🧪 测试连接"), key="test_search_llm", use_container_width=True):
+                with st.spinner(t("正在测试情报 LLM 连接...")):
                     ok, msg = _test_llm_connection("search_llm")
                     st.session_state.llm_test_results["search_llm"] = True if ok else msg
         with col_status1:
@@ -548,72 +554,107 @@ def _settings_dialog():
 
     # ---- Tab 3: Integration LLM ----
     with tab_integ:
-        st.caption("分析 LLM 用于审核员、法官、撰稿人 Agent 以及资讯梳理、追问回答。")
-        _render_llm_config_section("integration_llm", "分析")
+        st.caption(t("分析 LLM 用于审核员、法官、撰稿人 Agent 以及资讯梳理、追问回答。"))
+        _render_llm_config_section("integration_llm", t("分析"))
         st.divider()
         col_test2, col_status2 = st.columns([1, 2])
         with col_test2:
-            if st.button("🧪 测试连接", key="test_integration_llm", use_container_width=True):
-                with st.spinner("正在测试分析 LLM 连接..."):
+            if st.button(t("🧪 测试连接"), key="test_integration_llm", use_container_width=True):
+                with st.spinner(t("正在测试分析 LLM 连接...")):
                     ok, msg = _test_llm_connection("integration_llm")
                     st.session_state.llm_test_results["integration_llm"] = True if ok else msg
         with col_status2:
             _show_test_result("integration_llm")
 
+    # ---- Language Selector ----
+    st.divider()
+    lang_options = ["中文", "English"]
+    current_lang_idx = 0 if st.session_state.get("lang", "zh") == "zh" else 1
+    col_lang_label, col_lang_sel = st.columns([1, 2])
+    with col_lang_label:
+        st.caption(t("语言 / Language"))
+    with col_lang_sel:
+        selected_lang = st.selectbox(
+            "",
+            lang_options,
+            index=current_lang_idx,
+            key="settings_lang_selector",
+            label_visibility="collapsed",
+        )
+        new_lang = "zh" if selected_lang == "中文" else "en"
+        if new_lang != st.session_state.get("lang", "zh"):
+            st.session_state.lang = new_lang
+            st.rerun()
+
     # ---- Save + Test All ----
     st.divider()
     col_test_all, col_save, col_hint = st.columns([1, 1, 3])
     with col_test_all:
-        if st.button("🧪 测试全部", key="test_all", use_container_width=True):
-            with st.spinner("正在测试全部连接..."):
+        if st.button(t("🧪 测试全部"), key="test_all", use_container_width=True):
+            with st.spinner(t("正在测试全部连接...")):
                 for pfx in ("search_llm", "integration_llm"):
                     ok, msg = _test_llm_connection(pfx)
                     st.session_state.llm_test_results[pfx] = True if ok else msg
                 ok_s, msg_s = _test_search_connection()
                 st.session_state.llm_test_results["search"] = True if ok_s else msg_s
     with col_save:
-        if st.button("💾 保存设置", use_container_width=True, type="primary", key="settings_save"):
+        if st.button(t("💾 保存设置"), use_container_width=True, type="primary", key="settings_save"):
             _save_settings()
-            st.success("设置已保存", icon="✅")
+            st.success(t("设置已保存"), icon="✅")
     with col_hint:
-        st.caption("切换厂商时自动缓存已配置的 API Key / URL，切回无需重输。")
+        st.caption(t("切换厂商时自动缓存已配置的 API Key / URL，切回无需重输。"))
 
 
 def _show_test_result(key: str):
     """Display a compact test result indicator."""
     result = st.session_state.get("llm_test_results", {}).get(key)
     if result is None:
-        st.caption("⬜ 未测试")
+        st.caption(t("⬜ 未测试"))
     elif result is True:
-        st.success("✅ 连接可用")
+        st.success(t("✅ 连接可用"))
     else:
         st.error(f"❌ {result}")
 
 
-@st.dialog("👋 欢迎使用 AI资讯透视镜", width="large")
+@st.dialog("🌐 Language / 语言", width="small")
+def _language_selection_dialog():
+    """First-run language selection shown before anything else."""
+    st.markdown("""
+    <div style="text-align:center; padding:10px 0;">
+        <h3 style="margin:0;">🌐 Choose your language</h3>
+        <p style="opacity:0.5; margin:6px 0 20px;">请选择界面语言</p>
+    </div>
+    """, unsafe_allow_html=True)
+    col_zh, col_en = st.columns(2)
+    with col_zh:
+        if st.button("中文", use_container_width=True, type="primary"):
+            st.session_state.lang = "zh"
+            st.rerun()
+    with col_en:
+        if st.button("English", use_container_width=True):
+            st.session_state.lang = "en"
+            st.rerun()
+
+
+@st.dialog(t("👋 欢迎使用 AI资讯透视镜"), width="large")
 def _onboarding_dialog():
     """First-run dialog guiding user to configure LLM."""
-    st.markdown("""
-    ### 🎉 欢迎！开始之前请先配置 AI 模型
-
-    本工具使用 **4-Agent CrewAI 辩论引擎** 进行深度资讯分析，需要至少配置一个 LLM 才能工作。
-
-    **快速开始：**
-    1. 点击下方按钮打开设置
-    2. 在 **🔍 情报 LLM** 标签页选择厂商，填入 API Key
-    3. 点击 **💾 保存设置**
-    4. 点 **🧪 测试连接** 验证可用性
-
-    > 💡 **推荐**：DeepSeek 便宜且中文能力强；DuckDuckGo 搜索免费无需 Key。
-    > 所有配置保存在本地 `data/settings.json`，不会上传。
-    """)
+    st.markdown(t("### 🎉 欢迎！开始之前请先配置 AI 模型\n\n"
+    "本工具使用 **4-Agent CrewAI 辩论引擎** 进行深度资讯分析，需要至少配置一个 LLM 才能工作。\n\n"
+    "**快速开始：**\n"
+    "1. 点击下方按钮打开设置\n"
+    "2. 在 **🔍 情报 LLM** 标签页选择厂商，填入 API Key\n"
+    "3. 点击 **💾 保存设置**\n"
+    "4. 点 **🧪 测试连接** 验证可用性\n\n"
+    "> 💡 **推荐**：DeepSeek 便宜且中文能力强；DuckDuckGo 搜索免费无需 Key。\n"
+    "> 所有配置保存在本地 `data/settings.json`，不会上传。"))
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("⚙️ 打开设置", use_container_width=True, type="primary"):
+        if st.button(t("⚙️ 打开设置"), use_container_width=True, type="primary"):
             st.session_state._onboarding_go_settings = True
             st.rerun()
     with col2:
-        if st.button("🔍 先看看（模拟演示）", use_container_width=True):
+        if st.button(t("🔍 先看看（模拟演示）"), use_container_width=True):
             st.session_state.onboarding_skipped = True
             st.rerun()
 

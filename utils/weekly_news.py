@@ -6,6 +6,7 @@ from pathlib import Path
 
 from config import is_any_llm_configured
 from utils.logger import logger
+from utils.i18n import t
 
 CACHE_FILE = Path(__file__).parent.parent / "data" / "weekly_news_cache.json"
 
@@ -27,11 +28,11 @@ def _call_llm(prompt: str) -> str:
 def _translate_and_classify(news_items: list[dict]) -> list[dict]:
     """Use LLM to translate titles to Chinese and classify as CN/Global + controversy level."""
     if not news_items or not is_any_llm_configured():
-        # Fallback: mark all as global
+        # Fallback: preserve original region, use title as-is
         for item in news_items:
             item["title_cn"] = item.get("title", "")
-            item["region"] = "global"
-            item["controversy"] = "medium"
+            item["region"] = item.get("region", "unknown")
+            item["controversy"] = "unknown"
         return news_items
 
     # Build prompt
@@ -40,17 +41,7 @@ def _translate_and_classify(news_items: list[dict]) -> list[dict]:
         for i, item in enumerate(news_items[:12])
     )
 
-    prompt = f"""请对以下新闻逐条处理，返回 JSON 数组。每个元素格式：
-{{"id": 序号, "title_cn": "中文标题(简洁)", "region": "china/global", "controversy": "high/medium/low", "reason": "一句话说明为什么是这个争议等级"}}
-
-判断标准：
-- region: 与中国直接相关(政治/经济/社会/科技)→china，否则→global
-- controversy: 存在明显对立的观点/利益冲突/舆论反转→high，有一定讨论度→medium，纯资讯→low
-
-新闻列表：
-{items_text}
-
-只返回 JSON 数组，不要其他内容。"""
+    prompt = t("prompt.weekly_news.classify", items_text=items_text)
 
     result = _call_llm(prompt)
     if not result:
@@ -69,8 +60,8 @@ def _translate_and_classify(news_items: list[dict]) -> list[dict]:
         logger.warning("Failed to parse LLM classification, using fallback")
         for item in news_items:
             item["title_cn"] = item.get("title", "")
-            item["region"] = "global"
-            item["controversy"] = "medium"
+            item["region"] = item.get("region", "unknown")
+            item["controversy"] = "unknown"
         return news_items
 
     # Merge classifications back
@@ -78,8 +69,8 @@ def _translate_and_classify(news_items: list[dict]) -> list[dict]:
     for i, item in enumerate(news_items):
         cls = class_map.get(i + 1, {})
         item["title_cn"] = cls.get("title_cn", item.get("title", ""))
-        item["region"] = cls.get("region", "global")
-        item["controversy"] = cls.get("controversy", "medium")
+        item["region"] = cls.get("region", item.get("region", "unknown"))
+        item["controversy"] = cls.get("controversy", "unknown")
         item["reason"] = cls.get("reason", "")
 
     return news_items
@@ -143,12 +134,12 @@ def fetch_weekly_hot_news() -> dict:
     cn_seen = set()
 
     cn_queries = [
-        f"中国 本周 热点新闻 争议 {date_cn}",
-        f"今日 热搜 社会事件 {date_cn}",
-        "国内 头条 新闻 舆论 争议",
+        f"新闻 社会 争议 事件 {date_cn}",
+        f"最新 报道 事件 话题 {date_cn}",
+        "时事 头条 新闻 争议",
     ]
     for q in cn_queries:
-        for r in _search_cn_sources(q, max_results=6):
+        for r in _search_cn_sources(q, max_results=8):
             url = r.get("url", "")
             if url and url not in cn_seen:
                 cn_seen.add(url)
@@ -213,6 +204,11 @@ def fetch_weekly_hot_news() -> dict:
         logger.info("RSS module not available, skipping")
     except Exception as e:
         logger.warning(f"RSS supplement failed: {e}")
+
+    # ---- Filter merged results (RSS items were added directly, need filtering too) ----
+    from utils.search import _filter_results
+    china_items = _filter_results(china_items)
+    global_items = _filter_results(global_items)
 
     # ---- Translate & Classify (CN titles to Chinese, EN titles to Chinese) ----
     china_items = _translate_and_classify(china_items)

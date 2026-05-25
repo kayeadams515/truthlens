@@ -3,6 +3,8 @@
 import streamlit as st
 import plotly.graph_objects as go
 
+from utils.i18n import t
+
 
 def truth_probability_gauge(probability: float, rationale: str = ""):
     """Render a truth probability gauge using Plotly."""
@@ -12,7 +14,7 @@ def truth_probability_gauge(probability: float, rationale: str = ""):
         mode="gauge+number",
         value=probability,
         number={"font": {"size": 48, "family": "monospace"}},
-        title={"text": "真相可能概率", "font": {"size": 16}},
+        title={"text": t("真相可能概率"), "font": {"size": 16}},
         gauge={
             "axis": {"range": [0, 100], "tickwidth": 1},
             "bar": {"color": bar_color},
@@ -37,15 +39,15 @@ def truth_probability_gauge(probability: float, rationale: str = ""):
     st.plotly_chart(fig, use_container_width=True)
 
     if rationale:
-        with st.expander("📐 概率计算依据"):
+        with st.expander(t("📐 概率计算依据")):
             st.markdown(rationale)
 
 
 def sentiment_bar_chart(sentiment_stats: dict):
     """Render a horizontal sentiment bar chart."""
     labels = {
-        "angry": "愤怒 😡", "fearful": "恐惧 😨", "neutral": "中立 😐",
-        "supportive": "支持 👍", "sympathetic": "同情 🤝", "sarcastic": "讽刺 😏",
+        "angry": t("愤怒 😡"), "fearful": t("恐惧 😨"), "neutral": t("中立 😐"),
+        "supportive": t("支持 👍"), "sympathetic": t("同情 🤝"), "sarcastic": t("讽刺 😏"),
     }
     items = sorted(sentiment_stats.items(), key=lambda x: x[1], reverse=True)
     display_labels = [labels.get(k, k) for k, v in items]
@@ -59,7 +61,7 @@ def sentiment_bar_chart(sentiment_stats: dict):
         textposition="outside",
     ))
     fig.update_layout(
-        title={"text": "评论区情绪分布", "font": {"size": 16}},
+        title={"text": t("评论区情绪分布"), "font": {"size": 16}},
         height=260,
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
@@ -81,7 +83,7 @@ def evidence_radar_chart(categories: dict):
         line=dict(color="#00bfa5", width=2),
     ))
     fig.update_layout(
-        title={"text": "证据链完整度雷达图", "font": {"size": 16}},
+        title={"text": t("证据链完整度雷达图"), "font": {"size": 16}},
         height=380,
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",

@@ -5,18 +5,19 @@ from datetime import datetime
 
 from config import is_any_llm_configured
 from utils.logger import logger
+from utils.i18n import t
 
 
 def render_instant():
     """Render the detail/analysis page. Auto-runs if topic is passed in."""
-    st.markdown("""
+    st.markdown(f"""
     <div style="text-align:center; margin-bottom:24px;">
-        <h2>⚡ 透视分析</h2>
+        <h2>{t("⚡ 透视分析")}</h2>
     </div>
     """, unsafe_allow_html=True)
 
     if not is_any_llm_configured():
-        st.warning("⚠️ 未配置 LLM API Key，请在设置中配置后使用。搜索功能可独立使用。")
+        st.warning(t("⚠️ 未配置 LLM API Key，请在设置中配置后使用。搜索功能可独立使用。"))
 
     # Get topic and mode from session state
     incoming_topic = st.session_state.pop("analyze_topic", "")
@@ -39,13 +40,13 @@ def render_instant():
     is_insight = (mode == "insight")
 
     if not topic:
-        st.markdown("""
+        st.markdown(f"""
         <div style="text-align:center; padding:60px 20px; opacity:0.5;">
             <div style="font-size:64px; margin-bottom:20px;">🔍</div>
-            <p style="font-size:18px;">从首页搜索或选择一条新闻开始分析</p>
+            <p style="font-size:18px;">{t("从首页搜索或选择一条新闻开始分析")}</p>
         </div>
         """, unsafe_allow_html=True)
-        if st.button("← 返回首页", use_container_width=True):
+        if st.button(t("← 返回首页"), use_container_width=True):
             st.session_state.current_page = "feed"
             st.rerun()
         return
@@ -71,7 +72,7 @@ def render_instant():
         _run_insight_mode(topic)
     else:
         # Fresh info analysis — disambiguate first if needed
-        with st.spinner("🔍 正在分析关键词..."):
+        with st.spinner(t("🔍 正在分析关键词...")):
             resolved_topic = _disambiguate_topic(topic)
         if resolved_topic is None:
             return
@@ -79,7 +80,7 @@ def render_instant():
 
     # Back button
     st.divider()
-    if st.button("← 返回首页搜索新事件", use_container_width=True):
+    if st.button(t("← 返回首页搜索新事件"), use_container_width=True):
         st.session_state.pop("current_topic", None)
         st.session_state.pop("current_mode", None)
         st.session_state.current_page = "feed"
@@ -93,36 +94,36 @@ def render_instant():
 def _run_controversy_mode(topic: str):
     st.markdown(f"""
     <div style="border:1px solid rgba(128,128,128,0.15); border-radius:8px; padding:16px; margin-bottom:20px;">
-        <strong>⚔️ 争议分析：</strong>{topic}
+        <strong>{t("⚔️ 争议分析：")}</strong>{topic}
     </div>
     """, unsafe_allow_html=True)
 
     if not is_any_llm_configured():
-        st.error("⚠️ 未配置 LLM API Key，无法运行争议分析。请在设置中配置 API Key。")
+        st.error(t("⚠️ 未配置 LLM API Key，无法运行争议分析。请在设置中配置 API Key。"))
         return
 
     # Detailed status display
-    with st.status("⚔️ 4-Agent 辩论流水线启动中...", expanded=True) as status:
-        st.write("🔍 **情报官 (Scout)** — 正在从多源搜索中英文互联网信息...")
-        st.write("⏳ 预计耗时 30-90 秒，请耐心等待")
+    with st.status(t("⚔️ 4-Agent 辩论流水线启动中..."), expanded=True) as status:
+        st.write(t("🔍 **情报官 (Scout)** — 正在从多源搜索中英文互联网信息..."))
+        st.write(t("⏳ 预计耗时 30-90 秒，请耐心等待"))
 
         start_time = datetime.now()
         report = _run_live_analysis(topic)
         elapsed = (datetime.now() - start_time).total_seconds()
 
         if report is None:
-            status.update(label="❌ 分析失败", state="error")
+            status.update(label=t("❌ 分析失败"), state="error")
             return
 
         status.update(
-            label=f"✅ 4-Agent 辩论完成（耗时 {elapsed:.0f} 秒）",
+            label=t("✅ 4-Agent 辩论完成（耗时 {elapsed:.0f} 秒", elapsed=elapsed),
             state="complete",
             expanded=False,
         )
-        st.write(f"🔍 **情报官** — 完成多源信息搜集")
-        st.write(f"🧐 **审核员** — 完成交叉审查与利益关联分析")
-        st.write(f"⚖️ **法官** — 完成贝叶斯真相概率计算")
-        st.write(f"✍️ **撰稿人** — 完成结构化报告生成")
+        st.write(t("🔍 **情报官** — 完成多源信息搜集"))
+        st.write(t("🧐 **审核员** — 完成交叉审查与利益关联分析"))
+        st.write(t("⚖️ **法官** — 完成贝叶斯真相概率计算"))
+        st.write(t("✍️ **撰稿人** — 完成结构化报告生成"))
 
     # Cache for redisplay on Q&A rerun
     st.session_state.current_report = report
@@ -144,41 +145,41 @@ def _run_insight_mode(topic: str):
     """
     st.markdown(f"""
     <div style="border:1px solid rgba(128,128,128,0.15); border-radius:8px; padding:16px; margin-bottom:20px;">
-        <strong>🧬 争议洞察：</strong>{topic}
+        <strong>{t("🧬 争议洞察：")}</strong>{topic}
     </div>
     """, unsafe_allow_html=True)
 
     if not is_any_llm_configured():
-        st.warning("⚠️ 未配置 LLM API Key。争议洞察需要 LLM 进行深度分析。将使用模板化输出。")
+        st.warning(t("⚠️ 未配置 LLM API Key。争议洞察需要 LLM 进行深度分析。将使用模板化输出。"))
 
     try:
-        with st.spinner("🔍 正在搜集社交媒体讨论..."):
+        with st.spinner(t("🔍 正在搜集社交媒体讨论...")):
             start_time = datetime.now()
 
             # Step 1: Social-media-focused search
             search_results = _search_insight(topic)
 
         if not search_results:
-            st.warning(f"未找到关于「{topic}」的社交媒体讨论，请尝试换一个关键词或更宽泛的表述。")
-            st.caption("💡 提示：确保已在设置中配置搜索 API Key（如 Tavily），或尝试切换到 DuckDuckGo。")
+            st.warning(t("未找到关于「{topic}」的社交媒体讨论，请尝试换一个关键词或更宽泛的表述。", topic=topic))
+            st.caption(t("💡 提示：确保已在设置中配置搜索 API Key（如 Tavily），或尝试切换到 DuckDuckGo。"))
             return
 
-        st.success(f"✅ 搜集到 {len(search_results)} 条相关讨论")
+        st.success(t("✅ 搜集到 {count} 条相关讨论", count=len(search_results)))
 
         # Step 2: Opinion camp analysis (LLM Call 1)
-        with st.spinner("🧐 正在识别舆论阵营与情绪分布..."):
+        with st.spinner(t("🧐 正在识别舆论阵营与情绪分布...")):
             opinion_data = _analyze_opinion_camps(topic, search_results)
 
         num_camps = len(opinion_data.get("camps", []))
         if num_camps > 0:
             camp_names = "、".join(c.get("name", "") for c in opinion_data["camps"])
-            st.success(f"✅ 识别出 {num_camps} 个舆论阵营：{camp_names}")
+            st.success(t("✅ 识别出 {num} 个舆论阵营：{names}", num=num_camps, names=camp_names))
         else:
-            st.info("ℹ️ 未能清晰识别舆论阵营，将生成通用报告")
+            st.info(t("ℹ️ 未能清晰识别舆论阵营，将生成通用报告"))
 
         num_communities = len(opinion_data.get("communities", []))
         if num_communities > 0:
-            st.caption(f"👥 涉及 {num_communities} 个圈层/社区")
+            st.caption(t("👥 涉及 {num} 个圈层/社区", num=num_communities))
 
         genes = opinion_data.get("controversy_genes", [])
         if genes:
@@ -186,11 +187,11 @@ def _run_insight_mode(topic: str):
             st.caption(f"🏷️ {gene_tags}")
 
         # Step 3: Narrative report synthesis (LLM Call 2)
-        with st.spinner("✍️ 正在撰写洞察报告..."):
+        with st.spinner(t("✍️ 正在撰写洞察报告...")):
             report = _synthesize_insight_report(topic, opinion_data, search_results)
 
         elapsed = (datetime.now() - start_time).total_seconds()
-        st.caption(f"⏱️ 耗时 {elapsed:.0f} 秒")
+        st.caption(t("⏱️ 耗时 {elapsed:.0f} 秒", elapsed=elapsed))
 
         # Cache for redisplay on Q&A rerun
         st.session_state.current_insight_report = report
@@ -200,8 +201,8 @@ def _run_insight_mode(topic: str):
 
     except Exception as e:
         logger.error(f"Insight mode failed for '{topic}': {e}")
-        st.error(f"❌ 争议洞察分析出错：{str(e)[:200]}")
-        st.caption("请检查网络连接和 API 配置后重试。")
+        st.error(t("❌ 争议洞察分析出错：") + str(e)[:200])
+        st.caption(t("请检查网络连接和 API 配置后重试。"))
 
 
 def _search_insight(topic: str) -> list[dict]:
@@ -313,7 +314,7 @@ def _analyze_opinion_camps(topic: str, search_results: list[dict]) -> dict:
         elif "tiktok" in url:
             platform = "TikTok"
         else:
-            platform = source or "通用"
+            platform = source or t("通用")
         # Try to extract date from content
         import re
         date_match = re.search(r"(\d{4}[-/年]\d{1,2}[-/月]\d{1,2}[日号]?)", content[:200])
@@ -322,58 +323,7 @@ def _analyze_opinion_camps(topic: str, search_results: list[dict]) -> dict:
 
     items_text = "\n\n".join(items)
 
-    prompt = f"""你是一位资深社交媒体舆论分析师。用户正在研究「{topic}」的社交网络争议。
-
-以下是搜集到的社交媒体讨论（含平台和日期标注）：
-
-{items_text}
-
-请深入分析并输出 JSON 格式结果（只输出 JSON，放在 ```json 代码块中）：
-
-{{
-  "topic_intro": "用2-3句话介绍这个话题/人物/事件的基本背景（中文）",
-  "is_meme": true/false,
-  "meme_info": {{"origin": "梗的起源（如适用）", "evolution": "传播和演变路径", "first_appeared": "最早出现时间/平台"}},
-  "camps": [
-    {{
-      "name": "阵营简称",
-      "size_estimate": 0,
-      "audience_profile": "什么样的人群持此观点",
-      "core_beliefs": "核心立场",
-      "key_arguments": ["论点"],
-      "emotional_tone": "愤怒/理性/嘲讽/同情/调侃/中立",
-      "typical_platforms": ["平台"],
-      "representative_quote": "代表性言论"
-    }}
-  ],
-  "communities": [
-    {{"name": "圈层名", "perspective": "该圈层的独特视角", "aligned_camp": "倾向阵营"}}
-  ],
-  "controversy_genes": [
-    {{"tag": "标签", "explanation": "解释"}}
-  ],
-  "timeline": [
-    {{"date": "YYYY-MM-DD或约YYYY-MM", "event": "关键事件", "significance": "引爆点/反转/平息/升级", "heat": 0}}
-  ],
-  "opinion_shifts": [
-    {{"from": "起初观点", "to": "后来转变", "trigger": "触发事件", "approx_date": "约YYYY-MM"}}
-  ],
-  "cross_platform_sentiment": {{}},
-  "sentiment_distribution": {{}},
-  "controversy_type": "争议类型",
-  "underlying_tension": "深层矛盾洞察"
-}}
-
-要求：
-- camps 识别 2-4 个主要阵营，各阵营 size_estimate 总和为 100%，基于搜索结果推断
-- communities 识别至少 1-2 个相关圈层
-- controversy_genes 提取至少 1-2 个争议基因标签
-- timeline 至少 3-5 个关键节点（如能识别），heat 为 0-100 的相对热度
-- cross_platform_sentiment: 只填实际出现在搜索结果中的平台，情绪值为 0-100 整数，总和不必为 100
-- sentiment_distribution: 整体情绪分布，值为 0-100 整数，总和不必为 100
-- ⚠️ 重要：所有数值必须是基于搜索结果的推断，无法判断的字段用空数组 [] 或空对象 {{}} 标记，不要编造数据
-- 如果搜索数据显示不足，用空对象/数组标记
-- 所有中文内容使用中文"""
+    prompt = t("prompt.insight.analyze_opinion", topic=topic, items_text=items_text)
 
     try:
         resp = llm.call(messages=[{"role": "user", "content": prompt}])
@@ -438,45 +388,8 @@ def _synthesize_insight_report(topic: str, opinion_data: dict, search_results: l
 特别说明：这是一个网络梗/流行语类话题。请在报告中包含梗的起源（{mi.get('origin', '未知')}）、
 传播路径（{mi.get('evolution', '未知')}）和语义演变，用「梗百科」的风格自然叙述。"""
 
-    prompt = f"""你是一位深谙互联网文化的社会观察家。请围绕「{topic}」撰写一份**争议洞察报告**。
-
-## 舆论分析数据
-{analysis_json}
-{meme_section}
-
-## 部分原始素材（增加现场感）
-{quotes_text}
-
-## 写作要求
-
-写一份自然流畅的长文（约2000-3000字）。**严禁使用固定模板**——不要用"一、二、三"编号，不要用"背景-发展-高潮-结局"的套路结构。
-
-报告应该像一篇优秀的深度社会观察文章，自然覆盖：
-
-1. **开场**：用吸引人的方式引入话题——这是什么事件/人物/梗，为什么在社交媒体上引发讨论。如果是梗，像"梗百科"一样追溯起源和演变。
-
-2. **舆论阵营画像**：介绍2-4个主要意见阵营。对每个阵营——
-   - 他们是谁（人群画像）
-   - 他们主张什么
-   - 他们为什么这样想
-   - 用引号引用一条代表性言论
-
-3. **圈层视角**：不同圈层/社群（电竞圈、二次元、职场人、饭圈等）如何看待这件事，他们各自关注什么。
-
-4. **争议演变时间线**：这场争议是如何发展的——引爆点 → 扩散 → 可能的反转或平息。如果舆论发生了迁移，描述变化过程。
-
-5. **跨平台对比**：微博/知乎/豆瓣/小红书/B站/Reddit 各自呈现什么特点——哪个平台情绪化、哪个理性分析、哪个站队表态。
-
-6. **争议基因**：这场争议本质上触动了什么——是代际冲突、阶层焦虑、性别对立、身份政治，还是圈层隔阂？给出有洞察力的分析。
-
-7. **深度观察**：超越表面，给出一些值得深思的观察。
-
-## 风格要求
-- 语言流畅自然，像一篇优质自媒体深度文章
-- 有力但不偏激，保持观察者的距离感
-- 引用代表性言论用引号标注，增加现场感
-- 可以有锐利的洞察，但不要情绪化站队
-- 避免学术腔和说教感"""
+    prompt = t("prompt.insight.synthesize_report", topic=topic, analysis_json=analysis_json,
+               meme_section=meme_section, quotes_text=quotes_text)
 
     try:
         return llm.call(messages=[{"role": "user", "content": prompt}])
@@ -492,50 +405,52 @@ def _template_insight_report(topic: str, opinion_data: dict) -> str:
     communities = opinion_data.get("communities", [])
     timeline = opinion_data.get("timeline", [])
 
-    lines = [f"# 🧬 争议洞察：{topic}\n"]
+    lines = [f"# {t('🧬 争议洞察：')}{topic}\n"]
 
     intro = opinion_data.get("topic_intro", "")
     if intro:
         lines.append(f"{intro}\n")
 
     if camps:
-        lines.append(f"## 舆论阵营（共 {len(camps)} 个）\n")
+        lines.append(f"## {t('template.camps_title', count=len(camps))}\n")
         for i, camp in enumerate(camps, 1):
-            lines.append(f"### {i}. {camp.get('name', '未知')}（约 {camp.get('size_estimate', '?')}%）")
-            lines.append(f"- **人群画像**: {camp.get('audience_profile', '')}")
-            lines.append(f"- **核心立场**: {camp.get('core_beliefs', '')}")
+            name = camp.get('name', t('未知'))
+            size = camp.get('size_estimate', '?')
+            lines.append(t("template.camp_item", i=i, name=name, size=size))
+            lines.append(t("template.camp_profile", val=camp.get('audience_profile', '')))
+            lines.append(t("template.camp_belief", val=camp.get('core_beliefs', '')))
             args = camp.get("key_arguments", [])
             if args:
-                lines.append(f"- **主要论据**: {'; '.join(args)}")
-            lines.append(f"- **情绪基调**: {camp.get('emotional_tone', '')}")
+                lines.append(t("template.camp_args", val='; '.join(args)))
+            lines.append(t("template.camp_tone", val=camp.get('emotional_tone', '')))
             quote = camp.get("representative_quote", "")
             if quote:
-                lines.append(f"- **代表性言论**: 「{quote}」")
+                lines.append(t("template.camp_quote", val=quote))
             lines.append("")
 
     if communities:
-        lines.append("## 涉及圈层\n")
+        lines.append(f"## {t('template.communities_title')}\n")
         for c in communities:
-            lines.append(f"- **{c.get('name', '')}**: {c.get('perspective', '')}（倾向: {c.get('aligned_camp', '未知')}）")
+            lines.append(t("template.community_item", name=c.get('name', ''), perspective=c.get('perspective', ''), camp=c.get('aligned_camp', t('未知'))))
         lines.append("")
 
     if timeline:
-        lines.append("## 关键时间线\n")
-        for t in sorted(timeline, key=lambda x: x.get("date", "")):
-            lines.append(f"- **{t.get('date', '')}** — {t.get('event', '')} [{t.get('significance', '')}]")
+        lines.append(f"## {t('template.timeline_title')}\n")
+        for t_event in sorted(timeline, key=lambda x: x.get("date", "")):
+            lines.append(f"- **{t_event.get('date', '')}** — {t_event.get('event', '')} [{t_event.get('significance', '')}]")
         lines.append("")
 
     if genes:
-        lines.append("## 争议基因\n")
+        lines.append(f"## {t('template.genes_title')}\n")
         for g in genes:
             lines.append(f"- **#{g.get('tag', '')}**: {g.get('explanation', '')}")
         lines.append("")
 
     tension = opinion_data.get("underlying_tension", "")
     if tension:
-        lines.append(f"## 深层矛盾\n\n{tension}\n")
+        lines.append(f"## {t('template.tension_title')}\n\n{tension}\n")
 
-    lines.append("\n> ⚠️ 模板化摘要。配置 LLM API Key 可启用 AI 智能深度分析。")
+    lines.append(f"\n> {t('⚠️ 模板化摘要。配置 LLM API Key 可启用 AI 智能深度分析。')}")
     return "\n".join(lines)
 
 
@@ -546,7 +461,7 @@ def _display_insight_result(topic: str, report: str, insight_data: dict):
     model_short = model.split("/")[-1] if "/" in model else model
     st.markdown(f"""
     <div style="text-align:right; opacity:0.5; font-size:12px; margin-bottom:16px;">
-        争议洞察 | {model_short}
+        {t("争议洞察")} | {model_short}
     </div>
     """, unsafe_allow_html=True)
 
@@ -565,9 +480,9 @@ def _display_insight_result(topic: str, report: str, insight_data: dict):
 
     # Upgrade to full controversy analysis
     st.divider()
-    st.markdown("### ⚔️ 需要更深度的事实核查？")
-    st.caption("启动 4-Agent 辩论流水线，交叉验证各方说辞，计算真相概率。适合需要核实事实的争议事件。")
-    if st.button("⚔️ 启动争议分析", type="primary", use_container_width=True, key="insight_upgrade"):
+    st.markdown(f"### {t('### ⚔️ 需要更深度的事实核查？').lstrip('#').strip()}")
+    st.caption(t("启动 4-Agent 辩论流水线，交叉验证各方说辞，计算真相概率。适合需要核实事实的争议事件。"))
+    if st.button(t("⚔️ 启动争议分析"), type="primary", use_container_width=True, key="insight_upgrade"):
         st.session_state.analyze_topic = topic
         st.session_state.analyze_mode = "controversy"
         st.rerun()
@@ -590,8 +505,8 @@ def _render_insight_dashboard(insight_data: dict, topic: str):
     is_meme = insight_data.get("is_meme", False)
 
     st.divider()
-    st.markdown("### 📊 争议洞察仪表盘")
-    st.caption("⚠️ 以下数值为 AI 基于搜索结果的**定性估算**，非精确统计数据，仅供参考舆论格局")
+    st.markdown(f"### {t('### 📊 争议洞察仪表盘').lstrip('#').strip()}")
+    st.caption(t("⚠️ 以下数值为 AI 基于搜索结果的**定性估算**，非精确统计数据，仅供参考舆论格局"))
 
     # ---- Row 0: Controversy Gene Tags ----
     if isinstance(genes, list) and genes:
@@ -600,18 +515,18 @@ def _render_insight_dashboard(insight_data: dict, topic: str):
     # ---- Row 1: Key Metrics ----
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric("舆论阵营", f"{len(camps)} 个")
+        st.metric(t("舆论阵营"), f"{len(camps)}{t(' 个')}")
     with col2:
         num_communities = len(communities)
-        st.metric("涉及圈层", f"{num_communities} 个" if num_communities else "—")
+        st.metric(t("涉及圈层"), f"{num_communities}{t(' 个')}" if num_communities else "—")
     with col3:
         num_timeline = len(timeline)
-        st.metric("关键节点", f"{num_timeline} 个" if num_timeline else "—")
+        st.metric(t("关键节点"), f"{num_timeline}{t(' 个')}" if num_timeline else "—")
     with col4:
-        st.metric("争议类型", controversy_type[:10] if controversy_type else "待分析")
+        st.metric(t("争议类型"), controversy_type[:10] if controversy_type else t("待分析"))
 
     if is_meme:
-        st.caption("🧬 已识别为梗/网络流行语类话题 — 报告包含梗百科溯源")
+        st.caption(t("🧬 已识别为梗/网络流行语类话题 — 报告包含梗百科溯源"))
 
     # ---- Row 2: Camp Size Chart + Sentiment Distribution ----
     col_l, col_r = st.columns(2)
@@ -623,8 +538,8 @@ def _render_insight_dashboard(insight_data: dict, topic: str):
         else:
             st.markdown("""
             <div style="text-align:center; padding:60px 20px; opacity:0.4;">
-                <p style="font-size:14px; font-weight:600;">舆论阵营规模分布</p>
-                <p style="font-size:13px;">暂无数据</p>
+                <p style="font-size:14px; font-weight:600;">{t('舆论阵营规模分布')}</p>
+                <p style="font-size:13px;">{t('暂无数据')}</p>
             </div>
             """, unsafe_allow_html=True)
     with col_r:
@@ -637,10 +552,10 @@ def _render_insight_dashboard(insight_data: dict, topic: str):
         if chart_data:
             sentiment_bar_chart(chart_data)
         else:
-            st.markdown("""
+            st.markdown(f"""
             <div style="text-align:center; padding:60px 20px; opacity:0.4;">
-                <p style="font-size:14px; font-weight:600;">情绪分布</p>
-                <p style="font-size:13px;">暂无数据</p>
+                <p style="font-size:14px; font-weight:600;">{t('情绪分布')}</p>
+                <p style="font-size:13px;">{t('暂无数据')}</p>
             </div>
             """, unsafe_allow_html=True)
 
@@ -661,10 +576,10 @@ def _render_insight_dashboard(insight_data: dict, topic: str):
         if has_platform_data:
             _render_platform_radar(cross_platform)
         else:
-            st.markdown("""
+            st.markdown(f"""
             <div style="text-align:center; padding:60px 20px; opacity:0.4;">
-                <p style="font-size:14px; font-weight:600;">跨平台情绪对比</p>
-                <p style="font-size:13px;">暂无数据</p>
+                <p style="font-size:14px; font-weight:600;">{t('跨平台情绪对比')}</p>
+                <p style="font-size:13px;">{t('暂无数据')}</p>
             </div>
             """, unsafe_allow_html=True)
     with col_r2:
@@ -679,7 +594,7 @@ def _render_insight_dashboard(insight_data: dict, topic: str):
 
     # ---- Row 5: Opinion Shifts ----
     if isinstance(opinion_shifts, list) and opinion_shifts:
-        st.markdown("#### 🔄 观点迁移")
+        st.markdown(f"#### {t('#### 🔄 观点迁移').lstrip('#').strip()}")
         for shift in opinion_shifts:
             trigger = shift.get("trigger", "")
             approx_date = shift.get("approx_date", "")
@@ -693,7 +608,7 @@ def _render_insight_dashboard(insight_data: dict, topic: str):
 
     # ---- Row 6: Underlying Tension ----
     if underlying_tension:
-        st.markdown("#### 🧠 深层矛盾洞察")
+        st.markdown(f"#### {t('#### 🧠 深层矛盾洞察').lstrip('#').strip()}")
         st.info(underlying_tension)
 
 
@@ -721,7 +636,7 @@ def _render_controversy_genes(genes: list[dict]):
     """, unsafe_allow_html=True)
 
     # Explanation in expander
-    with st.expander("📖 基因标签解读"):
+    with st.expander(t("📖 基因标签解读")):
         for g in genes:
             st.markdown(f"- **#{g.get('tag', '')}**：{g.get('explanation', '')}")
 
@@ -729,7 +644,7 @@ def _render_controversy_genes(genes: list[dict]):
 def _render_camp_size_chart(camps: list[dict]):
     """Render a bar chart of opinion camp size estimates."""
     import plotly.graph_objects as go
-    names = [c.get("name", f"阵营{i+1}") for i, c in enumerate(camps)]
+    names = [c.get("name") or t("未知阵营") for i, c in enumerate(camps)]
     sizes = [c.get("size_estimate", 0) for c in camps]
     tones = [c.get("emotional_tone", "") for c in camps]
     colors = ["#00bfa5", "#d63384", "#f0a500", "#0d6efd", "#fd7e14"]
@@ -743,15 +658,15 @@ def _render_camp_size_chart(camps: list[dict]):
         customdata=tones,
     ))
     fig.update_layout(
-        title={"text": "舆论阵营规模分布（AI 估算）", "font": {"size": 16}},
+        title={"text": t("舆论阵营规模分布（AI 估算）"), "font": {"size": 16}},
         height=280,
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        yaxis={"title": "估计占比 (%)", "range": [0, max(sizes) * 1.3], "showgrid": True, "gridcolor": "rgba(128,128,128,0.1)"},
+        yaxis={"title": t("估计占比 (%)"), "range": [0, max(sizes) * 1.3], "showgrid": True, "gridcolor": "rgba(128,128,128,0.1)"},
         margin=dict(l=20, r=20, t=40, b=40),
     )
     st.plotly_chart(fig, use_container_width=True)
-    st.caption("阵营占比由 AI 估算，不代表精确统计数据")
+    st.caption(t("阵营占比由 AI 估算，不代表精确统计数据"))
 
 
 def _render_platform_radar(cross_platform: dict):
@@ -782,7 +697,7 @@ def _render_platform_radar(cross_platform: dict):
         ))
 
     fig.update_layout(
-        title={"text": "跨平台情绪对比（AI 估算）", "font": {"size": 16}},
+        title={"text": t("跨平台情绪对比（AI 估算）"), "font": {"size": 16}},
         height=350,
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
@@ -805,7 +720,7 @@ def _render_timeline(timeline: list[dict]):
 
     events = [t.get("event", "") for t in sorted_tl]
     dates = [t.get("date", "") for t in sorted_tl]
-    heats = [t.get("heat", 50) for t in sorted_tl]
+    heats = [t.get("heat") or 0 for t in sorted_tl]
     significances = [t.get("significance", "") for t in sorted_tl]
 
     # Color by significance type
@@ -830,28 +745,28 @@ def _render_timeline(timeline: list[dict]):
         hovertemplate="%{x}<br>%{text}<br>热度: %{y}<extra></extra>",
     ))
     fig.update_layout(
-        title={"text": "争议演变时间线（AI 梳理）", "font": {"size": 16}},
+        title={"text": t("争议演变时间线（AI 梳理）"), "font": {"size": 16}},
         height=260,
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         xaxis={"showgrid": False},
-        yaxis={"title": "热度", "range": [0, 110], "showgrid": True, "gridcolor": "rgba(128,128,128,0.1)"},
+        yaxis={"title": t("热度"), "range": [0, 110], "showgrid": True, "gridcolor": "rgba(128,128,128,0.1)"},
         margin=dict(l=20, r=20, t=40, b=60),
     )
     st.plotly_chart(fig, use_container_width=True)
 
     # Legend for significance colors
-    st.caption("🔴 引爆点  🟠 反转  🔵 升级  🟢 平息")
+    st.caption(t("🔴 引爆点  🟠 反转  🔵 升级  🟢 平息"))
 
 
 def _render_communities_table(communities: list[dict]):
     """Render a table showing communities and their perspectives."""
-    st.markdown("#### 🎯 圈层视角")
+    st.markdown(f"#### {t('#### 🎯 圈层视角').lstrip('#').strip()}")
 
-    header = """
+    header = f"""
     <div style="display:grid; grid-template-columns:1fr 1.5fr 1fr; gap:8px; padding:8px 12px;
         border-bottom:1px solid rgba(128,128,128,0.15); font-size:12px; opacity:0.6; font-weight:600;">
-        <span>圈层</span><span>独特视角</span><span>倾向阵营</span>
+        <span>{t('圈层')}</span><span>{t('独特视角')}</span><span>{t('倾向阵营')}</span>
     </div>
     """
     st.markdown(header, unsafe_allow_html=True)
@@ -871,7 +786,7 @@ def _save_insight_report(topic: str, report: str, insight_data: dict):
     """Save an insight-mode report to persistence."""
     try:
         from utils.persistence import save_report
-        save_report(topic, report, truth_prob=50.0)
+        save_report(topic, report)
     except Exception as e:
         logger.warning(f"Failed to save insight report: {e}")
 
@@ -883,15 +798,15 @@ def _save_insight_report(topic: str, report: str, insight_data: dict):
 def _run_info_mode(topic: str):
     st.markdown(f"""
     <div style="border:1px solid rgba(128,128,128,0.15); border-radius:8px; padding:16px; margin-bottom:20px;">
-        <strong>📋 资讯梳理：</strong>{topic}
+        <strong>{t("📋 资讯梳理：")}</strong>{topic}
     </div>
     """, unsafe_allow_html=True)
-    with st.spinner("🔍 正在搜集相关信息..."):
+    with st.spinner(t("🔍 正在搜集相关信息...")):
         search_results = _search_info(topic)
 
     if not search_results:
-        st.warning(f"未搜索到任何结果，请尝试用更具体的关键词。")
-        if st.button("← 返回首页重新搜索", use_container_width=True):
+        st.warning(t("未搜索到任何结果，请尝试用更具体的关键词。"))
+        if st.button(t("← 返回首页重新搜索"), use_container_width=True):
             st.session_state.pop("current_topic", None)
             st.session_state.pop("current_mode", None)
             st.session_state.current_page = "feed"
@@ -901,21 +816,21 @@ def _run_info_mode(topic: str):
     # Filter irrelevant results
     original_results = list(search_results)
     if is_any_llm_configured() and len(search_results) > 3:
-        with st.spinner("🔍 正在筛选与事件相关的信息来源..."):
+        with st.spinner(t("🔍 正在筛选与事件相关的信息来源...")):
             search_results = _filter_relevant(topic, search_results)
 
     # If all filtered out, show the raw search results as candidates
     if not search_results:
-        st.warning(f"搜索到的结果似乎与「{topic}」不直接相关。以下是原始搜索结果，请选择最接近的事件：")
+        st.warning(t("搜索到的结果似乎与「{topic}」不直接相关。以下是原始搜索结果，请选择最接近的事件：", topic=topic))
         _show_search_candidates(original_results)
-        if st.button("← 返回首页重新搜索", use_container_width=True):
+        if st.button(t("← 返回首页重新搜索"), use_container_width=True):
             st.session_state.pop("current_topic", None)
             st.session_state.pop("current_mode", None)
             st.session_state.current_page = "feed"
             st.rerun()
         return
 
-    with st.spinner("📝 正在梳理信息..."):
+    with st.spinner(t("📝 正在梳理信息...")):
         summary = _summarize_info(topic, search_results)
 
     # Cache for redisplay
@@ -945,14 +860,14 @@ def _display_controversy_report(topic: str, report: str):
 
 def _display_info_result(topic: str, summary: str, search_results: list):
     """Display info mode results."""
-    st.markdown("### 📋 信息梳理结果")
+    st.markdown(f"### {t('### 📋 信息梳理结果').lstrip('#').strip()}")
     st.markdown('<div class="report-container">', unsafe_allow_html=True)
     st.markdown(summary, unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
-    with st.expander("📎 信息来源列表"):
+    with st.expander(t("📎 信息来源列表")):
         for i, r in enumerate(search_results[:10]):
-            title = r.get("title", "无标题")
+            title = r.get("title", t("无标题"))
             url = r.get("url", "")
             source = r.get("source", "").strip()
             if source:
@@ -967,9 +882,9 @@ def _display_info_result(topic: str, summary: str, search_results: list):
     _render_followup_qa(topic, summary, mode="info")
 
     st.divider()
-    st.markdown("### ⚔️ 需要深度分析？")
-    st.caption("启动 4-Agent 辩论流水线，交叉验证各方说辞，计算真相概率。")
-    if st.button("⚔️ 启动争议分析", type="primary", use_container_width=True):
+    st.markdown(f"### {t('### ⚔️ 需要深度分析？').lstrip('#').strip()}")
+    st.caption(t("启动 4-Agent 辩论流水线，交叉验证各方说辞，计算真相概率。"))
+    if st.button(t("⚔️ 启动争议分析"), type="primary", use_container_width=True):
         st.session_state.analyze_topic = topic
         st.session_state.analyze_mode = "controversy"
         st.rerun()
@@ -990,7 +905,7 @@ def _search_info(topic: str) -> list[dict]:
         return results
     except Exception as e:
         logger.warning(f"Search failed: {e}")
-        st.error(f"搜索失败：{e}")
+        st.error(f"{t('搜索失败：')}{e}")
 
     return []
 
@@ -1010,13 +925,7 @@ def _filter_relevant(topic: str, results: list[dict]) -> list[dict]:
             for i, r in enumerate(results)
         )
 
-        prompt = f"""用户搜索的事件关键词：「{topic}」
-
-以下是搜索结果，请判断每条是否与用户搜索的事件直接相关：
-
-{items}
-
-只回复与事件相关的条目编号（用逗号分隔，如 1,3,5）。如果都不相关，回复 NONE。"""
+        prompt = t("prompt.filter_relevant", topic=topic, items=items)
 
         resp = llm.call(messages=[{"role": "user", "content": prompt}]).strip()
         if resp.upper() == "NONE":
@@ -1056,7 +965,7 @@ def _show_search_candidates(results: list[dict]):
             </div>
             """, unsafe_allow_html=True)
         with col2:
-            if st.button("选这个", key=f"cand_{i}", use_container_width=True):
+            if st.button(t("选这个"), key=f"cand_{i}", use_container_width=True):
                 st.session_state.analyze_topic = title
                 st.session_state.analyze_mode = "info"
                 st.rerun()
@@ -1073,17 +982,7 @@ def _summarize_info(topic: str, search_results: list[dict]) -> str:
                 for i, r in enumerate(search_results[:8])
             )
 
-            prompt = f"""请对以下关于「{topic}」的信息进行客观梳理，生成一份新闻稿式的资讯概述。
-
-要求：
-1. 用中文，像写新闻稿一样自然叙述，不要用「开端」「发展」「争议」等死板的小标题
-2. 5-8 段，内容覆盖：事件起因、经过、争议焦点、当前结果、后续影响（自然融入叙述中）
-3. 每个自然段末尾用上标索引标注信息来源，如 [1]、[2]
-4. 不要添加主观评价，纯资讯梳理
-5. 文末附「信息来源索引」列出每个编号对应的来源名称
-
-信息来源：
-{sources_text}"""
+            prompt = t("prompt.summarize_info", topic=topic, sources_text=sources_text)
 
             return llm.call(messages=[{"role": "user", "content": prompt}])
         except Exception as e:
@@ -1111,7 +1010,7 @@ def _run_live_analysis(topic: str) -> str | None:
         return str(report)
     except Exception as e:
         logger.error(f"Live analysis failed: {e}")
-        st.error(f"AI 分析出现错误：{str(e)}")
+        st.error(f"{t('AI 分析出现错误：')}{str(e)}")
         return None
 
 
@@ -1124,9 +1023,9 @@ def _save_report(topic: str, report: str):
         import re
         from utils.persistence import save_report
         prob_match = re.search(r"真相可能概率\s*\|\s*([\d.]+)%", report)
-        truth_prob = float(prob_match.group(1)) if prob_match else 50.0
-        if not (0 <= truth_prob <= 100):
-            truth_prob = min(max(truth_prob, 0), 100) if truth_prob > 100 else (truth_prob * 100 if truth_prob < 1 else 50.0)
+        truth_prob = float(prob_match.group(1)) if prob_match else None
+        if truth_prob is not None and not (0 <= truth_prob <= 100):
+            truth_prob = min(max(truth_prob, 0), 100) if truth_prob > 100 else (truth_prob * 100 if truth_prob < 1 else None)
         save_report(topic, report, truth_prob)
     except Exception as e:
         logger.warning(f"Failed to save report: {e}")
@@ -1141,20 +1040,20 @@ def _render_controversy_dashboard(report: str, topic: str):
     from ui.components import truth_probability_gauge, sentiment_bar_chart
 
     prob_match = re.search(r"真相可能概率\s*\|\s*([\d.]+)%", report)
-    truth_prob = float(prob_match.group(1)) if prob_match else 50.0
-    if not (0 <= truth_prob <= 100):
-        truth_prob = min(max(truth_prob, 0), 100) if truth_prob > 100 else (truth_prob * 100 if truth_prob < 1 else 50.0)
+    truth_prob = float(prob_match.group(1)) if prob_match else None
+    if truth_prob is not None and not (0 <= truth_prob <= 100):
+        truth_prob = min(max(truth_prob, 0), 100) if truth_prob > 100 else (truth_prob * 100 if truth_prob < 1 else None)
     ev_match = re.search(r"证据链完整度\s*\|\s*([\d.]+)\s*/\s*100", report)
-    evidence_score = int(ev_match.group(1)) if ev_match else 50
+    evidence_score = int(ev_match.group(1)) if ev_match else None
     sources = len(re.findall(r"\[来源:", report))
 
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("真相可能概率", f"{truth_prob}%")
+        st.metric(t("真相可能概率"), f"{truth_prob}%" if truth_prob is not None else t("暂无数据"))
     with col2:
-        st.metric("证据链完整度", f"{evidence_score}/100")
+        st.metric(t("证据链完整度"), f"{evidence_score}/100" if evidence_score is not None else t("暂无数据"))
     with col3:
-        st.metric("引用来源数", str(sources))
+        st.metric(t("引用来源数"), str(sources))
 
     col_l, col_r = st.columns(2)
     with col_l:
@@ -1164,10 +1063,10 @@ def _render_controversy_dashboard(report: str, topic: str):
         if sentiment_data:
             sentiment_bar_chart(sentiment_data)
         else:
-            st.markdown("""
+            st.markdown(f"""
             <div style="text-align:center; padding:60px 20px; opacity:0.4;">
-                <p>评论区情绪分布</p>
-                <p style="font-size:13px;">暂无数据</p>
+                <p>{t('评论区情绪分布')}</p>
+                <p style="font-size:13px;">{t('暂无数据')}</p>
             </div>
             """, unsafe_allow_html=True)
 
@@ -1177,18 +1076,18 @@ def _render_info_dashboard(topic: str, search_results: list[dict]):
         return
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("信息来源数", str(len(search_results)))
+        st.metric(t("信息来源数"), str(len(search_results)))
     with col2:
         sources = set(r.get("source", "") for r in search_results if r.get("source"))
-        st.metric("独立来源", str(len(sources)))
+        st.metric(t("独立来源"), str(len(sources)))
     with col3:
         total = sum(len(r.get("content", "")) for r in search_results)
-        st.metric("信息量", f"{total // 100}条")
+        st.metric(t("信息量"), f"{total // 100}{t('条')}")
 
-    st.markdown("#### 来源分布")
+    st.markdown(f"#### {t('#### 来源分布').lstrip('#').strip()}")
     source_counts = {}
     for r in search_results:
-        src = r.get("source", "").strip()[:30] or "(未署名)"
+        src = r.get("source", "").strip()[:30] or f"({t('未署名')})"
         source_counts[src] = source_counts.get(src, 0) + 1
     for src, count in sorted(source_counts.items(), key=lambda x: x[1], reverse=True)[:5]:
         st.markdown(f"""
@@ -1197,7 +1096,7 @@ def _render_info_dashboard(topic: str, search_results: list[dict]):
             <div style="flex:1; height:6px; border-radius:3px; background:rgba(128,128,128,0.15);">
                 <div style="width:{count/len(search_results)*100}%; height:100%; border-radius:3px; background:#00bfa5;"></div>
             </div>
-            <span style="font-size:13px; opacity:0.6;">{count}篇</span>
+            <span style="font-size:13px; opacity:0.6;">{count}{t('篇')}</span>
         </div>
         """, unsafe_allow_html=True)
 
@@ -1235,37 +1134,37 @@ def _render_followup_qa(topic: str, report_content: str, mode: str):
     input_key = f"qa_input_{qa_suffix}"
     send_key = f"qa_send_{qa_suffix}"
 
-    with st.expander("💬 追问 AI（对报告内容有疑问？点击展开对话）", expanded=False):
-        st.caption("就报告中的疑点、事件细节或相关背景进行追问，AI 会结合报告内容和实时搜索为你解答。")
+    with st.expander(t("💬 追问 AI（对报告内容有疑问？点击展开对话）"), expanded=False):
+        st.caption(t("就报告中的疑点、事件细节或相关背景进行追问，AI 会结合报告内容和实时搜索为你解答。"))
 
         # Chat history display
         for qa in st.session_state[qa_key]:
-            st.markdown(f"""
+            st.markdown(t("""
             <div style="margin:8px 0; padding:8px 12px; border-radius:8px; background:rgba(0,191,165,0.06);">
-                <strong>🧑 你：</strong>{qa['question']}
+                <strong>{you}</strong>{question}
             </div>
             <div style="margin:4px 0 12px 16px; padding:8px 12px; border-left:3px solid #00bfa5; opacity:0.85;">
-                {qa['answer']}
+                {answer}
             </div>
-            """, unsafe_allow_html=True)
+            """, you=t("🧑 你："), question=qa['question'], answer=qa['answer']), unsafe_allow_html=True)
 
         # Input — use a form to isolate submission from other buttons
         with st.form(key=f"qa_form_{qa_suffix}", clear_on_submit=True):
             col_input, col_send = st.columns([5, 1])
             with col_input:
                 question = st.text_input(
-                    "输入追问...",
-                    placeholder="例如：这个事件的最初爆料者是谁？有权威第三方检测结果吗？",
+                    t("输入追问..."),
+                    placeholder=t("例如：这个事件的最初爆料者是谁？有权威第三方检测结果吗？"),
                     label_visibility="collapsed",
                     key=input_key,
                 )
             with col_send:
-                submitted = st.form_submit_button("发送", use_container_width=True)
+                submitted = st.form_submit_button(t("发送"), use_container_width=True)
 
         if submitted and question.strip():
-            with st.spinner("🤔 AI 正在思考（判断是否需要搜索补充信息）..."):
+            with st.spinner(t("🤔 AI 正在思考（判断是否需要搜索补充信息）...")):
                 need_search = _should_search(topic, report_content[:2000], question.strip())
-            spinner_text = "🤔 正在搜索补充信息并生成回答..." if need_search else "🤔 正在基于现有信息生成回答..."
+            spinner_text = t("🤔 正在搜索补充信息并生成回答...") if need_search else t("🤔 正在基于现有信息生成回答...")
             with st.spinner(spinner_text):
                 answer = _answer_followup(topic, report_content, question.strip(), mode, need_search=need_search)
             st.session_state[qa_key].append({"question": question.strip(), "answer": answer})
@@ -1276,7 +1175,7 @@ def _answer_followup(topic: str, report: str, question: str, mode: str,
                      need_search: bool = False) -> str:
     """Answer a follow-up question. Intelligently triggers search only when needed."""
     if not is_any_llm_configured():
-        return "⚠️ 未配置 LLM API Key，追问功能需要在 .env 中配置 API Key 后使用。"
+        return t("⚠️ 未配置 LLM API Key，追问功能需要在 .env 中配置 API Key 后使用。")
 
     # Search if needed
     additional_context = ""
@@ -1293,19 +1192,7 @@ def _should_search(topic: str, report: str, question: str) -> bool:
         from config import create_search_llm
         llm = create_search_llm(temperature=0.0)
 
-        prompt = f"""你是一个判断助手。用户刚读了关于「{topic}」的报告，现在有一个追问。
-
-## 报告内容摘要
-{report[:2000]}
-
-## 用户追问
-{question}
-
-请判断：仅凭报告现有内容是否足以回答这个追问？
-- 如果报告内容足够 → 回复 NO
-- 如果报告信息不足/缺失/需要最新数据/需要验证 → 回复 YES
-
-只回复 YES 或 NO。"""
+        prompt = t("prompt.should_search", topic=topic, report=report[:2000], question=question)
 
         result = llm.call(messages=[{"role": "user", "content": prompt}]).strip().upper()
         return "YES" in result
@@ -1349,23 +1236,12 @@ def _generate_answer(topic: str, report: str, question: str,
             else:
                 search_note = "\n\n（已尝试搜索补充信息，但未找到相关结果。请基于报告内容回答，诚实说明信息不足的部分。）"
 
-        prompt = f"""你是新闻分析助手。用户刚阅读了关于「{topic}」的透视报告，现在追问。
-
-## 报告内容
-{report[:3000]}{search_note}
-
-## 用户追问
-{question}
-
-要求：
-- 简洁直接，用中文
-- 优先引用报告中已有信息
-- 如果补充搜索有相关信息，引用并标注"🔍 实时搜索"
-- 信息不足的地方诚实说明"""
+        prompt = t("prompt.generate_answer", topic=topic, report=report[:3000],
+                   search_note=search_note, question=question)
 
         return llm.call(messages=[{"role": "user", "content": prompt}])
     except Exception as e:
-        return f"追问处理失败：{str(e)}"
+        return f"{t('追问处理失败：')}{str(e)}"
 
 
 # ============================================================
@@ -1411,16 +1287,7 @@ def _disambiguate_topic(topic: str) -> str | None:
         from config import create_search_llm
         llm = create_search_llm(temperature=0.0)
 
-        decision = llm.call(messages=[{"role": "user", "content": f"""用户搜索关键词：「{topic}」
-
-搜索结果：
-{titles}
-
-判断：以上搜索结果是否指向**完全相同的一个事件**？
-- 如果所有结果都在报道同一事件（不同媒体不同角度也算同一个事件）→ 回复 SPECIFIC
-- 只有当前几条结果明显是**不同的事件**时才回复 AMBIGUOUS
-
-只回复 SPECIFIC 或 AMBIGUOUS。"""}]).strip().upper()
+        decision = llm.call(messages=[{"role": "user", "content": t("prompt.disambiguate", topic=topic, titles=titles)}]).strip().upper()
 
         if "SPECIFIC" in decision:
             return topic
@@ -1428,7 +1295,7 @@ def _disambiguate_topic(topic: str) -> str | None:
         return topic  # If LLM fails, proceed directly rather than blocking
 
     # Truly ambiguous — show candidates (should be rare now)
-    st.markdown("### 🔍 你的关键词指向多个可能的事件，请选择一个：")
+    st.markdown(f"### {t('🔍 你的关键词指向多个可能的事件，请选择一个：')}")
 
     seen = set()
     candidates = []
@@ -1443,7 +1310,7 @@ def _disambiguate_topic(topic: str) -> str | None:
     if len(candidates) <= 1:
         return topic
 
-    st.info("🔍 关键词较模糊，以下是可能的事件候选，请选择一个：")
+    st.info(t("🔍 关键词较模糊，以下是可能的事件候选，请选择一个："))
     selected = None
     for i, r in enumerate(candidates):
         title = r.get("title", "")
@@ -1467,7 +1334,7 @@ def _disambiguate_topic(topic: str) -> str | None:
             </div>
             """, unsafe_allow_html=True)
         with col2:
-            if st.button("选这个", key=f"pick_{i}", use_container_width=True):
+            if st.button(t("选这个"), key=f"pick_{i}", use_container_width=True):
                 selected = title
 
     if selected:

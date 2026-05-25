@@ -1,30 +1,17 @@
-"""Challenger Agent (杠精审核员) — Adversarial cross-examination."""
+"""Challenger Agent — Adversarial cross-examination."""
 
 from crewai import Agent
 from agents import create_integration_llm
+from utils.i18n import t
 
 
 def create_challenger_agent() -> Agent:
     """Create the Challenger Agent — the adversarial skeptic."""
 
     return Agent(
-        role="杠精审核员 (Challenger)",
-        goal=(
-            "对情报官搜集的原始情报进行无死角的交叉审查。你必须做到：\n"
-            "1) **交叉比对证据**：将不同来源的信息进行时空、逻辑上的比对，标记出互相印证或互相矛盾之处；\n"
-            "2) **挖掘利益关联**：分析每一条观点背后可能的利益动机——是纯粹的公共关切？还是厂商公关？竞争对手抹黑？流量变现？\n"
-            "3) **寻找逻辑漏洞**：指出论证中的逻辑谬误(如稻草人、虚假两难、以偏概全、诉诸情感、因果倒置等)；\n"
-            "4) **识别水军/公关痕迹**：通过语言模式分析，标记疑似有组织的信息操控行为(如短时间大量相似话术、异常的情绪极端化等)；\n"
-            "5) **检测反讽与弦外之音**：识别评论中的讽刺、阴阳怪气、高级黑等隐性表达。\n\n"
-            "输出格式：针对每一方观点，给出【可信度评估】【利益相关度分析】【逻辑漏洞清单】【信息交叉验证结果】。"
-        ),
-        backstory=(
-            "你是一位著名的'事实核查员'和'辩论终结者'。在圈内以'杠精'著称——"
-            "不是因为你不讲道理，而是因为你从不接受任何未经严格检验的论断。"
-            "你曾在国际事实核查网络(IFCN)工作，审查过上千条争议性新闻，揭穿过数十起大规模舆论操控事件。"
-            "你的口头禅是：'如果一件事听起来太过完美，那它大概率是假的。如果一件事听起来太过荒谬，那它大概率被断章取义了。'"
-            "你对人性有深刻的理解：利益在哪里，谎言就在哪里。"
-        ),
+        role=t("agent.challenger.role"),
+        goal=t("agent.challenger.goal"),
+        backstory=t("agent.challenger.backstory"),
         llm=create_integration_llm(temperature=0.3),
         verbose=True,
         allow_delegation=False,

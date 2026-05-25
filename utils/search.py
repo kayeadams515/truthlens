@@ -66,10 +66,11 @@ _SPAM_PATTERNS = [
     # Search / aggregator result pages
     r"Live Posts & Updates", r"X.*search\?",
     r"exploding.?topics", r"trends?24",
-    # Garbage / nonsense strings
-    r"[A-Z]{6,}",  # Random uppercase strings like WKZCCRVC
 ]
 _SPAM_PATTERNS_C = [re.compile(p, re.IGNORECASE) for p in _SPAM_PATTERNS]
+
+# Case-SENSITIVE patterns (uppercase garbage detection — must NOT use IGNORECASE)
+_UPPERCASE_GARBAGE_RE = re.compile(r"[A-Z]{6,}")
 
 _SPAM_DOMAINS = {
     "seductivexk.com", "fa88cai.com", "bet365.com",
@@ -93,9 +94,41 @@ _SPAM_TITLE_STOPS = {
     "amenities review", "b1 amenities", "设施评价",
     "not an official", "not approved by",
     "google 外链", "外链软件", "外链推广",
+    # Meta / aggregation / list pages (not actual news articles)
+    "热点新闻列表", "网络热点事件列表", "热点事件列表",
+    "舆情报告", "舆情汇总", "舆情分析", "舆情周报", "舆情月报", "舆情日报",
+    "舆论场半年记", "舆论场", "舆情监测",
+    "大事记", "年度盘点", "新闻盘点",
+    "热搜榜", "热搜榜单",
+    "wikipedia", "维基百科",
+    # Category / channel page patterns
+    "时政频道", "国内频道", "国际频道", "财经频道",
+    "热点频道", "新闻频道", "综合频道",
+    # Bare section tokens (appear as "SiteName_时政" or just "时政")
+    "_时政", "_国内", "_国际", "_财经", "_社会", "_科技", "_娱乐",
+    "overview -", "archive -", "category -", "section -",
+    # Additional meta/aggregation patterns
+    "热点事件汇总", "热点新闻汇总", "事件汇总",
+    "本周热点", "今日热点", "本月热点", "近期热点",
+    "热点速览", "热点回顾", "热点整理",
+    "新闻聚合", "新闻汇总", "资讯汇总",
+    "热门话题", "热榜", "热搜",
+    "live posts", "trending now",
 }
 
 _CN_SPAM_TOKENS = ["外链", "推广", "TG:", "@", "软件推广", "谷歌推广", "百度推广"]
+
+_CN_META_TOKENS = [
+    "舆情报告", "舆情汇总", "舆情分析", "舆情周报", "舆情月报",
+    "热点事件列表", "热点新闻列表", "网络热点",
+    "舆论场", "舆论态势", "舆论总结",
+    "大事记", "年度盘点", "新闻盘点",
+    "热点事件汇总", "热点新闻汇总", "事件汇总",
+    "本周热点", "今日热点", "本月热点", "近期热点",
+    "热点速览", "热点回顾", "热点整理",
+    "新闻聚合", "新闻汇总", "资讯汇总",
+    "热门话题", "热榜",
+]
 
 
 def _filter_results(results: list[dict]) -> list[dict]:
@@ -126,13 +159,22 @@ def _filter_results(results: list[dict]) -> list[dict]:
         if any(w in title_lower for w in _SPAM_TITLE_STOPS):
             continue
 
-        # Regex patterns
+        # Regex patterns (case-insensitive spam)
         if any(p.search(text) for p in _SPAM_PATTERNS_C):
+            continue
+
+        # Uppercase garbage detection (case-SENSITIVE — only blocks ALL-CAPS gibberish)
+        if _UPPERCASE_GARBAGE_RE.search(title):
             continue
 
         # Chinese SEO heuristic: >= 2 suspicious tokens
         cn_hits = sum(1 for t in _CN_SPAM_TOKENS if t in text)
         if cn_hits >= 2:
+            continue
+
+        # Meta / aggregation page heuristic: >= 1 meta token in title
+        meta_hits = sum(1 for t in _CN_META_TOKENS if t in title)
+        if meta_hits >= 1:
             continue
 
         # Minimum quality: content must be meaningful

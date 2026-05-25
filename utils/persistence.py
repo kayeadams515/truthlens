@@ -12,7 +12,7 @@ DATA_DIR = Path(__file__).parent.parent / "data" / "reports"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def save_report(topic: str, markdown_report: str, truth_prob: float = 50.0) -> str:
+def save_report(topic: str, markdown_report: str, truth_prob: float | None = None) -> str:
     """Save a generated report to disk. Returns the report ID."""
     timestamp = datetime.now()
     report_id = timestamp.strftime("%Y%m%d_%H%M%S")
@@ -22,10 +22,11 @@ def save_report(topic: str, markdown_report: str, truth_prob: float = 50.0) -> s
         "id": report_id,
         "topic": topic,
         "generated_at": timestamp.isoformat(),
-        "truth_probability": truth_prob,
         "markdown_report": markdown_report,
         "summary": markdown_report[:200],
     }
+    if truth_prob is not None:
+        record["truth_probability"] = truth_prob
 
     filepath = DATA_DIR / filename
     filepath.write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
