@@ -1066,6 +1066,96 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         ),
     },
 
+    "task.crew.editor.debate_map": {
+        "zh": (
+            "情报官和审核员已经完成了对争议的信息搜集和交叉审查。"
+            "现在轮到你——首席撰稿人——将所有分析整合为一份**争议格局报告**。\n\n"
+            "⚠️ 注意：本轮分析的目标是「了解争议格局」——即梳理清楚谁在吵、吵什么、各自什么依据。"
+            "不需要计算真相概率（本流程没有法官）。\n\n"
+            "**你必须严格按以下格式输出（使用纯Markdown）：**\n\n"
+            "```markdown\n"
+            "# 🔍 AI资讯透视报告\n\n"
+            "## 📌 争议概述\n"
+            "[用2-3段概述这场争议的核心问题是什么、为什么人们会吵起来。纯事实，标注来源]\n\n"
+            "## ⚖️ 各方观点对垒\n"
+            "### 🏛️ 官方/权威方\n"
+            "[核心说辞 + 支撑证据 + 可信度评估]\n\n"
+            "### 📢 自媒体/KOL方\n"
+            "[逐一列出：核心说辞 + 利益相关度分析 + 与事实的矛盾点]\n\n"
+            "### 💬 舆论场声音\n"
+            "[列出其他值得关注的声音：当事人、旁观者、特定圈层等]\n\n"
+            "## 🔍 说法对齐\n"
+            "### ✅ 各方一致的说法\n"
+            "[列出各方共同认可的事实，逐条标注来源]\n"
+            "### ⚠️ 存在分歧的说法\n"
+            "[各方说法直接冲突的地方，列出冲突双方及其说辞]\n"
+            "### ❓ 尚待证实\n"
+            "[证据不足或来源单一，无法判断真伪的说法]\n\n"
+            "## 📊 舆论情绪\n"
+            "**情绪占比**：[angry/fearful/neutral/supportive/sarcastic等，给出百分比]\n"
+            "**代表性言论**：[选取2-3条有洞察价值的评论]\n\n"
+            "## 🧭 争议焦点地图\n"
+            "[用2-3段自然语言，勾勒出这场争议的核心交锋点：\n"
+            "大家在争什么？根本分歧在哪？有没有被忽视的角度？]\n"
+            "```\n\n"
+            "**关键约束：**\n"
+            "1. 任何数字、事实、百分比必须来自上游Agent的输出，严禁自行编造\n"
+            "2. 每条事实性陈述必须带来源标记 [来源: xxx]\n"
+            "3. 明确区分'事实'和'观点/推断'\n"
+            "4. 不确定的地方标注'待证实'\n"
+            "5. 不要强行制造对立——如果各方其实没什么根本分歧，就如实说"
+        ),
+        "en": (
+            "The Scout and Challenger have completed intelligence gathering and cross-examination. "
+            "Now it's your turn — Chief Editor — to integrate everything into a **Debate Landscape Report**.\n\n"
+            "⚠️ Note: This analysis aims to 'understand the debate landscape' — mapping who is arguing, about what, and on what grounds. "
+            "No truth probability is needed (no Judge in this pipeline).\n\n"
+            "**You must strictly follow this output format (plain Markdown):**\n\n"
+            "```markdown\n"
+            "# 🔍 AI Vision Lens Report\n\n"
+            "## 📌 Controversy Overview\n"
+            "[2-3 paragraphs on the core issue and why people are debating. Pure facts, cite sources]\n\n"
+            "## ⚖️ Viewpoint Showdown\n"
+            "### 🏛️ Official/Authority Side\n"
+            "[Core narrative + supporting evidence + credibility assessment]\n\n"
+            "### 📢 Independent Media/KOL Side\n"
+            "[List individually: core narrative + interest analysis + contradictions with facts]\n\n"
+            "### 💬 Public Voices\n"
+            "[Other notable voices: affected parties, bystanders, specific communities]\n\n"
+            "## 🔍 Claim Alignment\n"
+            "### ✅ Widely Agreed Claims\n"
+            "[Facts recognized by all sides, cite sources for each]\n"
+            "### ⚠️ Disputed Claims\n"
+            "[Direct conflicts between different narratives, list each side's version]\n"
+            "### ❓ Unverified\n"
+            "[Claims with insufficient evidence or single-source only]\n\n"
+            "## 📊 Public Sentiment\n"
+            "**Sentiment Breakdown**: [angry/fearful/neutral/supportive/sarcastic — percentages]\n"
+            "**Notable Comments**: [2-3 insightful comments]\n\n"
+            "## 🧭 Debate Focal Map\n"
+            "[2-3 paragraphs in natural language mapping the core battleground:\n"
+            "What are people really arguing about? What is the fundamental disagreement? Any overlooked angles?]\n"
+            "```\n\n"
+            "**Key constraints:**\n"
+            "1. All numbers, facts, and percentages must come from upstream agent output — no fabrication\n"
+            "2. Every factual statement must carry a source tag [source: xxx]\n"
+            "3. Clearly distinguish 'facts' from 'opinions/inferences'\n"
+            "4. Mark uncertain items as 'Unverified'\n"
+            "5. Don't force a dichotomy — if there is no fundamental disagreement, say so honestly"
+        ),
+    },
+    "task.crew.editor.debate_map.expected": {
+        "zh": (
+            "一份完整的争议格局报告，包含争议概述、各方观点对垒、说法对齐、"
+            "舆论情绪、争议焦点地图五个板块。所有事实带来源标记。不含真相概率。"
+        ),
+        "en": (
+            "A complete debate landscape report with five sections: Controversy Overview, "
+            "Viewpoint Showdown, Claim Alignment, Public Sentiment, and Debate Focal Map. "
+            "All facts carry source tags. No truth probability."
+        ),
+    },
+
     # =========================================================================
     # ui/pages/instant.py — Inline LLM Prompts
     # =========================================================================
@@ -1112,14 +1202,45 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
 
     "prompt.insight.analyze_opinion": {
         "zh": (
-            "你是一位资深社交媒体舆论分析师。用户正在研究「{topic}」的社交网络争议。\n\n"
+            "你是一位资深社交媒体分析师。用户正在研究「{topic}」。\n\n"
             "以下是搜集到的社交媒体讨论（含平台和日期标注）：\n\n"
             "{items_text}\n\n"
-            "请深入分析并输出 JSON 格式结果（只输出 JSON，放在 ```json 代码块中）：\n\n"
+            "请先判断这个话题属于什么类型，然后根据类型自适应分析。\n\n"
+            "**第一步：判定话题类型 (topic_type)**\n"
+            "- \"controversy\" — 有对立阵营的争议事件（如社会争议、舆论撕裂）\n"
+            "- \"meme\" — 梗/网络迷因/流行语（如\"鸡你太美\"、\"遥遥领先\"）\n"
+            "- \"event\" — 热点事件（如事故、政策发布、明星动态）\n"
+            "- \"phenomenon\" — 社会现象/趋势（如\"年轻人不愿结婚\"、\"AI焦虑\"）\n\n"
+            "**第二步：根据类型输出对应字段**\n\n"
+            "所有类型都输出：topic_intro, topic_type, timeline, sentiment_distribution, cross_platform_sentiment\n\n"
+            "controversy 额外输出：camps, communities, controversy_genes, opinion_shifts, controversy_type, underlying_tension\n"
+            "meme 额外输出：meme_info (origin/evolution/variants/spread_path/why_popular/cultural_significance), related_memes\n"
+            "event 额外输出：stakeholders (各方反应), key_facts, public_reaction, event_type\n"
+            "phenomenon 额外输出：manifestations, causes, affected_groups, trend_direction\n\n"
+            "不适用的字段填空对象 {{}} 或空数组 []，不要编造。\n\n"
+            "输出 JSON 格式（只输出 JSON，放在 ```json 代码块中）：\n\n"
             "{{\n"
-            '  "topic_intro": "用2-3句话介绍这个话题/人物/事件的基本背景（中文）",\n'
+            '  "topic_intro": "用2-3句话介绍这个话题的基本背景",\n'
+            '  "topic_type": "controversy/meme/event/phenomenon",\n'
+            '  "timeline": [\n'
+            '    {{"date": "YYYY-MM-DD或约YYYY-MM", "event": "关键事件", "significance": "引爆点/反转/平息/升级/里程碑", "heat": 0}}\n'
+            "  ],\n"
+            '  "sentiment_distribution": {{"正面": 0, "负面": 0, "中性": 0, "戏谑": 0}},\n'
+            '  "cross_platform_sentiment": {{}},\n'
+            '  "opinion_shifts": [\n'
+            '    {{"from": "起初观点", "to": "后来转变", "trigger": "触发事件", "approx_date": "约YYYY-MM"}}\n'
+            "  ],\n"
             '  "is_meme": true/false,\n'
-            '  "meme_info": {{"origin": "梗的起源（如适用）", "evolution": "传播和演变路径", "first_appeared": "最早出现时间/平台"}},\n'
+            '  "meme_info": {{\n'
+            '    "origin": "梗的起源",\n'
+            '    "evolution": "传播和演变路径",\n'
+            '    "variants": ["变体1", "变体2"],\n'
+            '    "spread_path": "从哪个平台/圈层开始，如何扩散",\n'
+            '    "why_popular": "为什么火了",\n'
+            '    "cultural_significance": "反映了什么文化心理",\n'
+            '    "first_appeared": "最早出现时间/平台"\n'
+            "  }},\n"
+            '  "related_memes": ["相关梗1", "相关梗2"],\n'
             '  "camps": [\n'
             "    {{\n"
             '      "name": "阵营简称",\n'
@@ -1138,37 +1259,66 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
             '  "controversy_genes": [\n'
             '    {{"tag": "标签", "explanation": "解释"}}\n'
             "  ],\n"
-            '  "timeline": [\n'
-            '    {{"date": "YYYY-MM-DD或约YYYY-MM", "event": "关键事件", "significance": "引爆点/反转/平息/升级", "heat": 0}}\n'
+            '  "controversy_type": "争议类型（如适用）",\n'
+            '  "underlying_tension": "深层矛盾洞察（如适用）",\n'
+            '  "stakeholders": [\n'
+            '    {{"name": "相关方", "position": "立场/反应", "influence": "影响力高/中/低"}}\n'
             "  ],\n"
-            '  "opinion_shifts": [\n'
-            '    {{"from": "起初观点", "to": "后来转变", "trigger": "触发事件", "approx_date": "约YYYY-MM"}}\n'
-            "  ],\n"
-            '  "cross_platform_sentiment": {{}},\n'
-            '  "sentiment_distribution": {{}},\n'
-            '  "controversy_type": "争议类型",\n'
-            '  "underlying_tension": "深层矛盾洞察"\n'
+            '  "key_facts": ["关键事实1", "关键事实2"],\n'
+            '  "public_reaction": "公众总体反应",\n'
+            '  "event_type": "事故/政策/娱乐/科技/其他",\n'
+            '  "manifestations": ["表现1", "表现2"],\n'
+            '  "causes": "原因分析",\n'
+            '  "affected_groups": ["受影响群体"],\n'
+            '  "trend_direction": "趋势走向"\n'
             "}}\n\n"
             "要求：\n"
-            "- camps 识别 2-4 个主要阵营，各阵营 size_estimate 总和为 100%，基于搜索结果推断\n"
-            "- communities 识别至少 1-2 个相关圈层\n"
-            "- controversy_genes 提取至少 1-2 个争议基因标签\n"
-            "- timeline 至少 3-5 个关键节点（如能识别），heat 为 0-100 的相对热度\n"
-            "- cross_platform_sentiment: 只填实际出现在搜索结果中的平台，情绪值为 0-100 整数，总和不必为 100\n"
-            "- sentiment_distribution: 整体情绪分布，值为 0-100 整数，总和不必为 100\n"
-            "- ⚠️ 重要：所有数值必须是基于搜索结果的推断，无法判断的字段用空数组 [] 或空对象 {{}} 标记，不要编造数据\n"
-            "- 如果搜索数据显示不足，用空对象/数组标记\n"
+            "- ⚠️ 最重要：根据 topic_type 只填写该类型对应的字段，不适用的填空对象/数组。不要为了填满而编造\n"
+            "- 所有数值必须是基于搜索结果的推断，无法判断的用空数组 [] 或空对象 {{}} 标记\n"
+            "- timeline 至少 3 个关键节点（如能识别），heat 为 0-100 的相对热度\n"
+            "- camps 仅在 topic_type=controversy 时填写，size_estimate 总和 100%\n"
             "- 所有中文内容使用中文"
         ),
         "en": (
-            "You are a senior social media opinion analyst. The user is researching the social media controversy around「{topic}」.\n\n"
+            "You are a senior social media analyst. The user is researching「{topic}」.\n\n"
             "Below are collected social media discussions (with platform and date annotations):\n\n"
             "{items_text}\n\n"
-            "Analyze deeply and output JSON (output ONLY JSON in a ```json code block):\n\n"
+            "First determine the topic type, then adapt your analysis accordingly.\n\n"
+            "**Step 1: Determine topic_type**\n"
+            '- "controversy" — A controversy with opposing camps (e.g., social debate, polarized opinions)\n'
+            '- "meme" — A meme / internet phenomenon / viral phrase\n'
+            '- "event" — A news event (e.g., accident, policy, celebrity news)\n'
+            '- "phenomenon" — A social phenomenon / trend (e.g., "quiet quitting", "AI anxiety")\n\n'
+            "**Step 2: Output fields based on type**\n\n"
+            "All types output: topic_intro, topic_type, timeline, sentiment_distribution, cross_platform_sentiment\n\n"
+            "controversy additionally: camps, communities, controversy_genes, opinion_shifts, controversy_type, underlying_tension\n"
+            "meme additionally: meme_info (origin/evolution/variants/spread_path/why_popular/cultural_significance), related_memes\n"
+            "event additionally: stakeholders, key_facts, public_reaction, event_type\n"
+            "phenomenon additionally: manifestations, causes, affected_groups, trend_direction\n\n"
+            "Use empty objects {{}} or arrays [] for inapplicable fields — do NOT fabricate.\n\n"
+            "Output JSON (ONLY JSON in a ```json code block):\n\n"
             "{{\n"
-            '  "topic_intro": "A 2-3 sentence introduction to this topic/person/event (in English)",\n'
+            '  "topic_intro": "2-3 sentence background introduction",\n'
+            '  "topic_type": "controversy/meme/event/phenomenon",\n'
+            '  "timeline": [\n'
+            '    {{"date": "YYYY-MM-DD or approx", "event": "Key event", "significance": "Trigger/Reversal/De-escalation/Escalation/Milestone", "heat": 0}}\n'
+            "  ],\n"
+            '  "sentiment_distribution": {{"positive": 0, "negative": 0, "neutral": 0, "playful": 0}},\n'
+            '  "cross_platform_sentiment": {{}},\n'
+            '  "opinion_shifts": [\n'
+            '    {{"from": "Initial view", "to": "Shifted to", "trigger": "Trigger event", "approx_date": "Approx YYYY-MM"}}\n'
+            "  ],\n"
             '  "is_meme": true/false,\n'
-            '  "meme_info": {{"origin": "Origin of the meme (if applicable)", "evolution": "Spread and evolution path", "first_appeared": "Earliest appearance time/platform"}},\n'
+            '  "meme_info": {{\n'
+            '    "origin": "Origin of the meme",\n'
+            '    "evolution": "Spread and evolution path",\n'
+            '    "variants": ["Variant 1", "Variant 2"],\n'
+            '    "spread_path": "Which platform/community did it start from and how did it spread",\n'
+            '    "why_popular": "Why it went viral",\n'
+            '    "cultural_significance": "What cultural psychology it reflects",\n'
+            '    "first_appeared": "Earliest appearance time/platform"\n'
+            "  }},\n"
+            '  "related_memes": ["Related meme 1", "Related meme 2"],\n'
             '  "camps": [\n'
             "    {{\n"
             '      "name": "Camp name",\n'
@@ -1182,91 +1332,136 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
             "    }}\n"
             "  ],\n"
             '  "communities": [\n'
-            '    {{"name": "Community name", "perspective": "Unique perspective of this community", "aligned_camp": "Leaning camp"}}\n'
+            '    {{"name": "Community", "perspective": "Unique perspective", "aligned_camp": "Leaning camp"}}\n'
             "  ],\n"
             '  "controversy_genes": [\n'
             '    {{"tag": "Tag", "explanation": "Explanation"}}\n'
             "  ],\n"
-            '  "timeline": [\n'
-            '    {{"date": "YYYY-MM-DD or approx YYYY-MM", "event": "Key event", "significance": "Trigger/Reversal/De-escalation/Escalation", "heat": 0}}\n'
+            '  "controversy_type": "Type of controversy (if applicable)",\n'
+            '  "underlying_tension": "Deep tension insight (if applicable)",\n'
+            '  "stakeholders": [\n'
+            '    {{"name": "Stakeholder", "position": "Stance/Reaction", "influence": "High/Medium/Low"}}\n'
             "  ],\n"
-            '  "opinion_shifts": [\n'
-            '    {{"from": "Initial opinion", "to": "Shifted to", "trigger": "Trigger event", "approx_date": "Approx YYYY-MM"}}\n'
-            "  ],\n"
-            '  "cross_platform_sentiment": {{}},\n'
-            '  "sentiment_distribution": {{}},\n'
-            '  "controversy_type": "Type of controversy",\n'
-            '  "underlying_tension": "Deep contradiction insight"\n'
+            '  "key_facts": ["Key fact 1", "Key fact 2"],\n'
+            '  "public_reaction": "Overall public reaction",\n'
+            '  "event_type": "Accident/Policy/Entertainment/Tech/Other",\n'
+            '  "manifestations": ["Manifestation 1", "Manifestation 2"],\n'
+            '  "causes": "Cause analysis",\n'
+            '  "affected_groups": ["Affected group"],\n'
+            '  "trend_direction": "Trend direction"\n'
             "}}\n\n"
             "Requirements:\n"
-            "- Identify 2-4 main camps; size_estimate values should sum to 100%, inferred from search results\n"
-            "- Identify at least 1-2 relevant communities\n"
-            "- Extract at least 1-2 controversy gene tags\n"
-            "- Timeline: at least 3-5 key nodes if identifiable; heat is relative 0-100\n"
-            "- cross_platform_sentiment: only include platforms actually appearing in search results; sentiment values are 0-100 integers, don't need to sum to 100\n"
-            "- sentiment_distribution: overall sentiment distribution; values are 0-100 integers, don't need to sum to 100\n"
-            "- ⚠️ IMPORTANT: All values must be inferred from search results. Use empty arrays [] or empty objects {{}} for undetermined fields — do NOT fabricate data\n"
-            "- If search data is insufficient, mark with empty objects/arrays\n"
-            "- All content must be in English"
+            "- ⚠️ MOST IMPORTANT: Only fill fields relevant to the topic_type. Use empty objects/arrays for inapplicable fields. Do NOT fabricate to fill space\n"
+            "- All values must be inferred from search results. Use [] or {{}} for undetermined fields\n"
+            "- Timeline: at least 3 key nodes if identifiable; heat is relative 0-100\n"
+            "- camps only for topic_type=controversy; size_estimate values sum to 100%\n"
+            "- All content in English"
         ),
     },
 
     "prompt.insight.synthesize_report": {
         "zh": (
-            "你是一位深谙互联网文化的社会观察家。请围绕「{topic}」撰写一份**争议洞察报告**。\n\n"
-            "## 舆论分析数据\n"
+            "你是一位深谙互联网文化的社会观察家。请围绕「{topic}」撰写一份深度洞察报告。\n\n"
+            "## 话题类型：{topic_type}\n\n"
+            "## 分析数据\n"
             "{analysis_json}\n"
             "{meme_section}\n\n"
             "## 部分原始素材（增加现场感）\n"
             "{quotes_text}\n\n"
             "## 写作要求\n\n"
-            "写一份自然流畅的长文（约2000-3000字）。**严禁使用固定模板**——不要用\"一、二、三\"编号，不要用\"背景-发展-高潮-结局\"的套路结构。\n\n"
-            "报告应该像一篇优秀的深度社会观察文章，自然覆盖：\n\n"
-            "1. **开场**：用吸引人的方式引入话题——这是什么事件/人物/梗，为什么在社交媒体上引发讨论。如果是梗，像\"梗百科\"一样追溯起源和演变。\n\n"
-            "2. **舆论阵营画像**：介绍2-4个主要意见阵营。对每个阵营——\n"
-            "   - 他们是谁（人群画像）\n"
-            "   - 他们主张什么\n"
-            "   - 他们为什么这样想\n"
-            "   - 用引号引用一条代表性言论\n\n"
-            "3. **圈层视角**：不同圈层/社群（电竞圈、二次元、职场人、饭圈等）如何看待这件事，他们各自关注什么。\n\n"
-            "4. **争议演变时间线**：这场争议是如何发展的——引爆点 → 扩散 → 可能的反转或平息。如果舆论发生了迁移，描述变化过程。\n\n"
-            "5. **跨平台对比**：微博/知乎/豆瓣/小红书/B站/Reddit 各自呈现什么特点——哪个平台情绪化、哪个理性分析、哪个站队表态。\n\n"
-            "6. **争议基因**：这场争议本质上触动了什么——是代际冲突、阶层焦虑、性别对立、身份政治，还是圈层隔阂？给出有洞察力的分析。\n\n"
-            "7. **深度观察**：超越表面，给出一些值得深思的观察。\n\n"
-            "## 风格要求\n"
-            "- 语言流畅自然，像一篇优质自媒体深度文章\n"
-            "- 有力但不偏激，保持观察者的距离感\n"
-            "- 引用代表性言论用引号标注，增加现场感\n"
-            "- 可以有锐利的洞察，但不要情绪化站队\n"
-            "- 避免学术腔和说教感"
+            "写一份自然流畅的长文（约2000-3000字）。这不是模板化的报告，而是一篇有温度的深度文章。\n\n"
+            "**根据话题类型，从以下角度中挑选 3-5 个最合适的来组织文章：**\n\n"
+            "🎭 **梗/迷因类 (meme)：**\n"
+            "- 起源追溯：这个梗从哪来的？最早出现在什么语境下？\n"
+            "- 演变与变体：它如何传播和变化？有哪些经典变体？\n"
+            "- 为什么火：什么社会心理让它引爆？踩中了什么集体情绪？\n"
+            "- 文化意义：这个梗折射出怎样的时代精神或群体心态？\n"
+            "- 圈层地图：哪些圈子在用？各自怎么用？\n\n"
+            "⚔️ **争议类 (controversy)：**\n"
+            "- 阵营画像：各方是谁、主张什么、为什么这样想\n"
+            "- 演变时间线：引爆→扩散→反转/平息\n"
+            "- 圈层视角：不同社群关注什么\n"
+            "- 争议基因：触动了什么深层矛盾\n"
+            "- 跨平台对比：各平台舆论特点\n\n"
+            "📰 **事件类 (event)：**\n"
+            "- 事件还原：完整时间线\n"
+            "- 各方反应：官方/媒体/公众/当事人\n"
+            "- 舆论情绪：公众总体感受\n"
+            "- 关键事实 vs 未证实说法\n\n"
+            "📊 **现象类 (phenomenon)：**\n"
+            "- 现象描摹：具体表现有哪些\n"
+            "- 原因剖析：为什么会这样\n"
+            "- 影响群体：谁在受影响\n"
+            "- 趋势判断：会怎么发展\n\n"
+            "**风格要求：**\n"
+            "- 像一篇优质自媒体深度文章，自然流畅\n"
+            "- 根据话题类型选择语调：梗可以轻松有趣，争议需冷静克制，事件要求准确清晰\n"
+            "- 引用代表性言论增加现场感\n"
+            "- 可以锐利但不偏激，避免学术腔和说教感\n"
+            "- 如果话题本身没什么争议性，就不要强行制造对立"
         ),
         "en": (
-            "You are a social observer deeply versed in internet culture. Write a **Controversy Insight Report** about「{topic}」.\n\n"
-            "## Opinion Analysis Data\n"
+            "You are a social observer deeply versed in internet culture. Write an insight report about「{topic}」.\n\n"
+            "## Topic Type: {topic_type}\n\n"
+            "## Analysis Data\n"
             "{analysis_json}\n"
             "{meme_section}\n\n"
-            "## Selected Raw Material (for color and authenticity)\n"
+            "## Selected Raw Material (for authenticity)\n"
             "{quotes_text}\n\n"
             "## Writing Requirements\n\n"
-            "Write a natural, flowing long-form article (~1500-2500 words). **NO rigid templates** — no numbered sections, no 'background-development-climax-resolution' structure.\n\n"
-            "The report should read like an excellent in-depth social observation piece, naturally covering:\n\n"
-            "1. **Opening**: Introduce the topic in an engaging way — what is this event/person/meme, and why is it sparking discussion on social media. If it's a meme, trace its origin and evolution like a 'meme encyclopedia'.\n\n"
-            "2. **Opinion Camp Profiles**: Introduce 2-4 main opinion camps. For each camp —\n"
-            "   - Who they are (audience profile)\n"
-            "   - What they advocate\n"
-            "   - Why they think this way\n"
-            "   - Quote a representative statement\n\n"
-            "3. **Community Perspectives**: How different communities/subcultures view this — what each focuses on.\n\n"
-            "4. **Controversy Timeline**: How the controversy evolved — trigger → spread → possible reversal or resolution. Describe opinion shifts if any.\n\n"
-            "5. **Cross-Platform Comparison**: How Weibo/Zhihu/Douban/Reddit/X each present different characteristics — which is emotional, which is analytical, which is taking sides.\n\n"
-            "6. **Controversy Genes**: What does this controversy fundamentally touch — generational conflict, class anxiety, gender divide, identity politics, or subculture barriers? Provide insightful analysis.\n\n"
-            "7. **Deep Observations**: Go beyond the surface. Offer thought-provoking observations.\n\n"
-            "## Style Requirements\n"
-            "- Natural, flowing language — like a quality long-form article\n"
-            "- Strong but not extreme — maintain observer's distance\n"
-            "- Use quotation marks for representative quotes — adds authenticity\n"
-            "- Sharp insights are welcome, but don't take sides emotionally\n"
-            "- Avoid academic tone and preaching"
+            "Write a natural, flowing long-form article (~1500-2500 words). This is not a templated report — it's a thoughtful, engaging piece.\n\n"
+            "**Based on the topic type, pick 3-5 most suitable angles from below to structure your article:**\n\n"
+            "🎭 **Meme:**\n"
+            "- Origin story: Where did this meme come from? What was the original context?\n"
+            "- Evolution & variants: How did it spread and change? Classic variants?\n"
+            "- Why viral: What social psychology made it explode? What collective emotion did it tap into?\n"
+            "- Cultural significance: What does this meme reveal about the zeitgeist or group mentality?\n"
+            "- Community map: Which subcultures use it? How does each use it differently?\n\n"
+            "⚔️ **Controversy:**\n"
+            "- Camp profiles: Who are the sides, what do they claim, why do they think that way\n"
+            "- Evolution timeline: Trigger → spread → reversal/resolution\n"
+            "- Community perspectives: What different subcultures focus on\n"
+            "- Controversy genes: What deeper tensions are triggered\n"
+            "- Cross-platform comparison: How each platform's discourse differs\n\n"
+            "📰 **Event:**\n"
+            "- Event reconstruction: Complete timeline\n"
+            "- Stakeholder reactions: Official/media/public/affected parties\n"
+            "- Public sentiment: Overall emotional response\n"
+            "- Key facts vs unverified claims\n\n"
+            "📊 **Phenomenon:**\n"
+            "- Manifestations: Specific forms it takes\n"
+            "- Root causes: Why is this happening\n"
+            "- Affected groups: Who is impacted\n"
+            "- Trend direction: Where is this heading\n\n"
+            "**Style:**\n"
+            "- Like a quality long-form article — natural and flowing\n"
+            "- Adapt tone to topic type: memes can be light and fun, controversies need restraint, events demand clarity\n"
+            "- Quote representative voices for authenticity\n"
+            "- Sharp insights welcome but don't take sides emotionally\n"
+            "- If the topic has no real controversy, don't force one"
+        ),
+    },
+
+    "prompt.classify_intent": {
+        "zh": (
+            "分析用户对以下话题的争议分析意图。\n\n"
+            "话题：{topic}\n"
+            "用户提出的争议观点：{angle}\n\n"
+            "判断用户意图属于以下哪种：\n"
+            '- "debate_understanding" — 用户想了解争议格局：谁在吵、为什么吵、各方什么观点。标志词：怎么吵起来的、为什么吵、谁对谁错、大家怎么看、各方观点、吵什么、争论焦点\n'
+            '- "truth_seeking" — 用户想验证一个具体说法是否为真。标志词：真的假的、是不是真的、真相、到底、实际是、事实核查、求证、辟谣、打假\n\n'
+            '返回 JSON：{{"intent": "debate_understanding 或 truth_seeking", "reason": "一句话中文理由"}}\n'
+            "只返回 JSON，不要其他内容。"
+        ),
+        "en": (
+            "Analyze the user's intent for controversy analysis on this topic.\n\n"
+            "Topic: {topic}\n"
+            "User's controversy angle: {angle}\n\n"
+            "Determine which intent the user has:\n"
+            '- "debate_understanding" — User wants to understand the debate landscape: who is arguing, about what, and what each side claims. Signals: what are people arguing about, what are the different views, who is right, debate overview\n'
+            '- "truth_seeking" — User wants to verify a specific claim. Signals: is it true, fact check, verify, debunk, what actually happened, reality check\n\n'
+            'Return JSON: {{"intent": "debate_understanding or truth_seeking", "reason": "one sentence reason in English"}}\n'
+            "Return only JSON, nothing else."
         ),
     },
 
@@ -1560,6 +1755,31 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
     },
     "🧬 争议洞察：": {"en": "🧬 Controversy Insight: "},
     "未知阵营": {"en": "Unknown Camp"},
+
+    # Adaptive dashboard labels based on topic_type / intent
+    "🏷️ 梗的标签：": {"en": "🏷️ Meme Tags:"},
+    "🏷️ 关键标签：": {"en": "🏷️ Key Tags:"},
+    "🧭 争议焦点地图": {"en": "🧭 Debate Focal Map"},
+    "📊 争议格局": {"en": "📊 Debate Landscape"},
+    "debate_understanding": {"en": "Debate Understanding"},
+    "truth_seeking": {"en": "Truth Seeking"},
+    "我想了解...": {"en": "I want to understand..."},
+    "可选：你想了解这个话题的什么方面？": {"en": "Optional: what aspect do you want to understand?"},
+    "🎭 争议剖析 — 了解争议格局": {"en": "🎭 Controversy Analysis — Debate Landscape"},
+    "🔎 争议剖析 — 真相核查": {"en": "🔎 Controversy Analysis — Truth Verification"},
+
+    # Adaptive controversy mode status labels
+    "⚔️ {agent_count}-Agent 辩论流水线启动中...": {
+        "en": "⚔️ {agent_count}-Agent Debate Pipeline starting..."
+    },
+    "✅ {agent_count}-Agent 辩论完成（耗时 {elapsed:.0f} 秒": {
+        "en": "✅ {agent_count}-Agent Debate complete ({elapsed:.0f}s"
+    },
+    "⏳ 预计耗时 20-60 秒，请耐心等待": {
+        "en": "⏳ Estimated 20-60 seconds, please wait..."
+    },
+    "观点类型": {"en": "View Types"},
+    " 种": {"en": " types"},
 }
 
 # ============================================================

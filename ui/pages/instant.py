@@ -25,6 +25,7 @@ def render_instant():
     incoming_topic = st.session_state.pop("analyze_topic", "")
     incoming_mode = st.session_state.pop("analyze_mode", "info")
     incoming_controversy_angle = st.session_state.pop("controversy_angle", "")
+    incoming_insight_guidance = st.session_state.pop("insight_guidance", "")
 
     if incoming_topic:
         # New analysis requested — store in persistent key, clear old cache
@@ -37,6 +38,7 @@ def render_instant():
         st.session_state.pop("current_insight_data", None)
         st.session_state.pop("qa_history", None)
         st.session_state.pop("current_controversy_angle", None)
+        st.session_state.pop("current_intent", None)
     elif has_incoming_mode and incoming_mode != st.session_state.get("current_mode", "info"):
         # Mode switch on same topic (e.g., info → controversy via angle input)
         st.session_state.current_mode = incoming_mode
@@ -70,8 +72,9 @@ def render_instant():
     cached_insight_data = st.session_state.get("current_insight_data")
 
     if cached_report and is_controversy:
+        cached_intent = st.session_state.get("current_intent", "debate_understanding")
         _display_controversy_report(topic, cached_report)
-        _render_controversy_dashboard(cached_report, topic)
+        _render_controversy_dashboard(cached_report, topic, cached_intent)
         _render_followup_qa(topic, cached_report, mode="controversy")
     elif cached_insight_report and is_insight:
         _display_insight_result(topic, cached_insight_report, cached_insight_data)
@@ -80,7 +83,7 @@ def render_instant():
     elif is_controversy:
         _run_controversy_mode(topic, controversy_angle, cached_search or [])
     elif is_insight:
-        _run_insight_mode(topic)
+        _run_insight_mode(topic, incoming_insight_guidance)
     else:
         # Fresh info analysis — disambiguate first if needed
         with st.spinner(t("🔍 正在分析关键词...")):
@@ -114,6 +117,15 @@ def _run_controversy_mode(topic: str, controversy_angle: str = "", info_search_r
             for r in info_search_results[:8]
         )
 
+    # ---- Classify user intent ----
+    intent = "debate_understanding"  # default
+    if controversy_angle and is_any_llm_configured():
+        intent = _classify_intent(topic, controversy_angle)
+    elif not controversy_angle:
+        intent = "debate_understanding"
+
+    is_truth_seeking = (intent == "truth_seeking")
+
     st.markdown(f"""
     <div style="border:1px solid rgba(128,128,128,0.15); border-radius:8px; padding:16px; margin-bottom:20px;">
         <strong>{t("⚔️ 争议分析：")}</strong>{topic}
@@ -128,17 +140,26 @@ def _run_controversy_mode(topic: str, controversy_angle: str = "", info_search_r
         </div>
         """, unsafe_allow_html=True)
 
+    # Intent badge
+    intent_label = t("🔎 争议剖析 — 真相核查") if is_truth_seeking else t("🎭 争议剖析 — 了解争议格局")
+    st.caption(f"{intent_label} · {t(intent)}")
+
     if not is_any_llm_configured():
         st.error(t("⚠️ 未配置 LLM API Key，无法运行争议分析。请在设置中配置 API Key。"))
         return
 
-    # Detailed status display
-    with st.status(t("⚔️ 4-Agent 辩论流水线启动中..."), expanded=True) as status:
+    # Detailed status display — adapt messages based on intent
+    agent_count = "4" if is_truth_seeking else "3"
+    status_label = t("⚔️ {agent_count}-Agent 辩论流水线启动中...", agent_count=agent_count)
+    if "{agent_count}" not in status_label:
+        status_label = f"⚔️ {'4' if is_truth_seeking else '3'}-Agent Pipeline starting..."
+    with st.status(status_label, expanded=True) as status:
         st.write(t("🔍 **情报官 (Scout)** — 正在从多源搜索中英文互联网信息..."))
-        st.write(t("⏳ 预计耗时 30-90 秒，请耐心等待"))
+        eta = t("⏳ 预计耗时 20-60 秒，请耐心等待") if not is_truth_seeking else t("⏳ 预计耗时 30-90 秒，请耐心等待")
+        st.write(eta)
 
         start_time = datetime.now()
-        report = _run_live_analysis(topic, controversy_angle, existing_info)
+        report = _run_live_analysis(topic, controversy_angle, existing_info, intent)
         elapsed = (datetime.now() - start_time).total_seconds()
 
         if report is None:
@@ -146,31 +167,56 @@ def _run_controversy_mode(topic: str, controversy_angle: str = "", info_search_r
             return
 
         status.update(
-            label=t("✅ 4-Agent 辩论完成（耗时 {elapsed:.0f} 秒", elapsed=elapsed),
+            label=t("✅ {agent_count}-Agent 辩论完成（耗时 {elapsed:.0f} 秒", agent_count=agent_count, elapsed=elapsed),
             state="complete",
             expanded=False,
         )
         st.write(t("🔍 **情报官** — 完成多源信息搜集"))
         st.write(t("🧐 **审核员** — 完成交叉审查与利益关联分析"))
-        st.write(t("⚖️ **法官** — 完成贝叶斯真相概率计算"))
+        if is_truth_seeking:
+            st.write(t("⚖️ **法官** — 完成贝叶斯真相概率计算"))
         st.write(t("✍️ **撰稿人** — 完成结构化报告生成"))
 
     # Cache for redisplay on Q&A rerun
     st.session_state.current_report = report
+    st.session_state.current_intent = intent
     _save_report(topic, report)
 
     _display_controversy_report(topic, report)
-    _render_controversy_dashboard(report, topic)
+    _render_controversy_dashboard(report, topic, intent)
     _render_followup_qa(topic, report, mode="controversy")
+
+
+def _classify_intent(topic: str, angle: str) -> str:
+    """Classify user intent as debate_understanding or truth_seeking."""
+    try:
+        from config import create_search_llm
+        llm = create_search_llm(temperature=0.0)
+        result = llm.call(messages=[{"role": "user", "content": t(
+            "prompt.classify_intent", topic=topic, angle=angle
+        )}])
+        result = result.strip()
+        if result.startswith("```"):
+            lines = result.split("\n")
+            result = "\n".join(lines[1:]) if len(lines) > 1 else result
+            if result.endswith("```"):
+                result = result[:-3]
+        import json
+        data = json.loads(result)
+        intent = data.get("intent", "debate_understanding")
+        logger.info(f"Intent classified: {intent} ({data.get('reason', '')})")
+        return intent if intent in ("debate_understanding", "truth_seeking") else "debate_understanding"
+    except Exception:
+        return "debate_understanding"
 
 
 # ============================================================
 # Insight Mode
 # ============================================================
 
-def _run_insight_mode(topic: str):
-    """Controversy insight analysis — social-media-focused, opinion camp mapping.
-    2-step direct LLM: opinion camp analysis → narrative synthesis.
+def _run_insight_mode(topic: str, guidance: str = ""):
+    """Adaptive insight analysis — social-media-focused, topic-type-aware.
+    2-step direct LLM: topic-type analysis → narrative synthesis.
     No CrewAI involved — faster and more creative than controversy mode.
     """
     st.markdown(f"""
@@ -178,6 +224,14 @@ def _run_insight_mode(topic: str):
         <strong>{t("🧬 争议洞察：")}</strong>{topic}
     </div>
     """, unsafe_allow_html=True)
+
+    if guidance:
+        st.markdown(f"""
+        <div style="background:rgba(0,191,165,0.08); border-left:3px solid #00bfa5; border-radius:4px; padding:12px; margin-bottom:16px;">
+            <small style="opacity:0.7;">{t("🎯 剖析争议点：")}</small><br>
+            <strong>{guidance}</strong>
+        </div>
+        """, unsafe_allow_html=True)
 
     if not is_any_llm_configured():
         st.warning(t("⚠️ 未配置 LLM API Key。争议洞察需要 LLM 进行深度分析。将使用模板化输出。"))
@@ -198,7 +252,7 @@ def _run_insight_mode(topic: str):
 
         # Step 2: Opinion camp analysis (LLM Call 1)
         with st.spinner(t("🧐 正在识别舆论阵营与情绪分布...")):
-            opinion_data = _analyze_opinion_camps(topic, search_results)
+            opinion_data = _analyze_opinion_camps(topic, search_results, guidance)
 
         num_camps = len(opinion_data.get("camps", []))
         if num_camps > 0:
@@ -299,14 +353,15 @@ def _search_insight(topic: str) -> list[dict]:
     return unique[:25]
 
 
-def _analyze_opinion_camps(topic: str, search_results: list[dict]) -> dict:
+def _analyze_opinion_camps(topic: str, search_results: list[dict], guidance: str = "") -> dict:
     """LLM Call 1: Analyze raw search results to extract full opinion landscape.
-    Returns structured JSON with camps, communities, genes, timeline, platform sentiment, etc.
+    Returns structured JSON with topic_type, camps, communities, genes, timeline, platform sentiment, etc.
     """
     if not is_any_llm_configured():
         return {"camps": [], "communities": [], "controversy_genes": [],
                 "timeline": [], "opinion_shifts": [], "cross_platform_sentiment": {},
-                "sentiment_distribution": {}, "topic_intro": "", "is_meme": False}
+                "sentiment_distribution": {}, "topic_intro": "", "is_meme": False,
+                "topic_type": "controversy"}
 
     from config import create_integration_llm
     llm = create_integration_llm(temperature=0.2)
@@ -354,6 +409,8 @@ def _analyze_opinion_camps(topic: str, search_results: list[dict]) -> dict:
     items_text = "\n\n".join(items)
 
     prompt = t("prompt.insight.analyze_opinion", topic=topic, items_text=items_text)
+    if guidance:
+        prompt += f"\n\n⚠️ 用户特别说明：{guidance}\n请在分析时重点关注用户希望了解的方面。"
 
     try:
         resp = llm.call(messages=[{"role": "user", "content": prompt}])
@@ -418,8 +475,9 @@ def _synthesize_insight_report(topic: str, opinion_data: dict, search_results: l
 特别说明：这是一个网络梗/流行语类话题。请在报告中包含梗的起源（{mi.get('origin', '未知')}）、
 传播路径（{mi.get('evolution', '未知')}）和语义演变，用「梗百科」的风格自然叙述。"""
 
-    prompt = t("prompt.insight.synthesize_report", topic=topic, analysis_json=analysis_json,
-               meme_section=meme_section, quotes_text=quotes_text)
+    topic_type = opinion_data.get("topic_type", "controversy")
+    prompt = t("prompt.insight.synthesize_report", topic=topic, topic_type=topic_type,
+               analysis_json=analysis_json, meme_section=meme_section, quotes_text=quotes_text)
 
     try:
         return llm.call(messages=[{"role": "user", "content": prompt}])
@@ -489,9 +547,18 @@ def _display_insight_result(topic: str, report: str, insight_data: dict):
     llm = st.session_state.get("integration_llm_provider", "")
     model = st.session_state.get("integration_llm_model", "")
     model_short = model.split("/")[-1] if "/" in model else model
+    topic_type = insight_data.get("topic_type", "controversy")
+    is_zh = st.session_state.get("lang", "zh") == "zh"
+    type_labels = {
+        "controversy": t("争议洞察"),
+        "meme": "梗洞察" if is_zh else "Meme Insight",
+        "event": "事件洞察" if is_zh else "Event Insight",
+        "phenomenon": "现象洞察" if is_zh else "Phenomenon Insight",
+    }
+    type_label = type_labels.get(topic_type, t("争议洞察"))
     st.markdown(f"""
     <div style="text-align:right; opacity:0.5; font-size:12px; margin-bottom:16px;">
-        {t("争议洞察")} | {model_short}
+        {type_label} | {model_short}
     </div>
     """, unsafe_allow_html=True)
 
@@ -549,27 +616,48 @@ def _render_insight_dashboard(insight_data: dict, topic: str):
     controversy_type = insight_data.get("controversy_type", "")
     underlying_tension = insight_data.get("underlying_tension", "")
     is_meme = insight_data.get("is_meme", False)
+    topic_type = insight_data.get("topic_type", "controversy")
 
     st.divider()
     st.markdown(f"### {t('### 📊 争议洞察仪表盘').lstrip('#').strip()}")
     st.caption(t("⚠️ 以下数值为 AI 基于搜索结果的**定性估算**，非精确统计数据，仅供参考舆论格局"))
 
-    # ---- Row 0: Controversy Gene Tags ----
+    # ---- Row 0: Tags (adapt label based on topic_type) ----
     if isinstance(genes, list) and genes:
         _render_controversy_genes(genes)
+    elif topic_type == "meme":
+        meme_tags = insight_data.get("meme_info", {})
+        if meme_tags.get("variants"):
+            tag_html = "".join(
+                f'<span class="badge badge-controversy" style="margin:2px;">{v}</span>'
+                for v in meme_tags["variants"][:5]
+            )
+            st.markdown(f"{t('🏷️ 梗的标签：')}{tag_html}", unsafe_allow_html=True)
 
-    # ---- Row 1: Key Metrics ----
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric(t("舆论阵营"), f"{len(camps)}{t(' 个')}")
-    with col2:
-        num_communities = len(communities)
-        st.metric(t("涉及圈层"), f"{num_communities}{t(' 个')}" if num_communities else "—")
-    with col3:
-        num_timeline = len(timeline)
-        st.metric(t("关键节点"), f"{num_timeline}{t(' 个')}" if num_timeline else "—")
-    with col4:
-        st.metric(t("争议类型"), controversy_type[:10] if controversy_type else t("待分析"))
+    # ---- Row 1: Key Metrics (adapt based on topic_type) ----
+    if topic_type == "meme":
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            num_timeline = len(timeline)
+            st.metric(t("关键节点"), f"{num_timeline}{t(' 个')}" if num_timeline else "—")
+        with col2:
+            num_communities = len(communities)
+            st.metric(t("涉及圈层"), f"{num_communities}{t(' 个')}" if num_communities else "—")
+        with col3:
+            num_camps = len(camps)
+            st.metric(t("观点类型"), f"{num_camps}{t(' 种')}" if num_camps else "—")
+    else:
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric(t("舆论阵营"), f"{len(camps)}{t(' 个')}")
+        with col2:
+            num_communities = len(communities)
+            st.metric(t("涉及圈层"), f"{num_communities}{t(' 个')}" if num_communities else "—")
+        with col3:
+            num_timeline = len(timeline)
+            st.metric(t("关键节点"), f"{num_timeline}{t(' 个')}" if num_timeline else "—")
+        with col4:
+            st.metric(t("争议类型"), controversy_type[:10] if controversy_type else t("待分析"))
 
     if is_meme:
         st.caption(t("🧬 已识别为梗/网络流行语类话题 — 报告包含梗百科溯源"))
@@ -1088,10 +1176,10 @@ def _summarize_info(topic: str, search_results: list[dict]) -> str:
 # Live / Mock Analysis (Controversy Mode)
 # ============================================================
 
-def _run_live_analysis(topic: str, controversy_angle: str = "", existing_info: str = "") -> str | None:
+def _run_live_analysis(topic: str, controversy_angle: str = "", existing_info: str = "", intent: str = "debate_understanding") -> str | None:
     try:
         from agents.crew import run_analysis
-        report = run_analysis(topic, controversy_angle, existing_info)
+        report = run_analysis(topic, controversy_angle, existing_info, intent)
         return str(report)
     except Exception as e:
         logger.error(f"Live analysis failed: {e}")
@@ -1120,40 +1208,65 @@ def _save_report(topic: str, report: str):
 # Embedded Dashboards
 # ============================================================
 
-def _render_controversy_dashboard(report: str, topic: str):
+def _render_controversy_dashboard(report: str, topic: str, intent: str = "debate_understanding"):
     import re
     from ui.components import truth_probability_gauge, sentiment_bar_chart
 
-    prob_match = re.search(r"真相可能概率\s*\|\s*([\d.]+)%", report)
-    truth_prob = float(prob_match.group(1)) if prob_match else None
-    if truth_prob is not None and not (0 <= truth_prob <= 100):
-        truth_prob = min(max(truth_prob, 0), 100) if truth_prob > 100 else (truth_prob * 100 if truth_prob < 1 else None)
-    ev_match = re.search(r"证据链完整度\s*\|\s*([\d.]+)\s*/\s*100", report)
-    evidence_score = int(ev_match.group(1)) if ev_match else None
+    is_truth_seeking = (intent == "truth_seeking")
+
+    if is_truth_seeking:
+        prob_match = re.search(r"真相可能概率\s*\|\s*([\d.]+)%", report)
+        truth_prob = float(prob_match.group(1)) if prob_match else None
+        if truth_prob is not None and not (0 <= truth_prob <= 100):
+            truth_prob = min(max(truth_prob, 0), 100) if truth_prob > 100 else (truth_prob * 100 if truth_prob < 1 else None)
+        ev_match = re.search(r"证据链完整度\s*\|\s*([\d.]+)\s*/\s*100", report)
+        evidence_score = int(ev_match.group(1)) if ev_match else None
+    else:
+        truth_prob = None
+        evidence_score = None
+
     sources = len(re.findall(r"\[来源:", report))
 
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric(t("真相可能概率"), f"{truth_prob}%" if truth_prob is not None else t("暂无数据"))
-    with col2:
-        st.metric(t("证据链完整度"), f"{evidence_score}/100" if evidence_score is not None else t("暂无数据"))
-    with col3:
-        st.metric(t("引用来源数"), str(sources))
+    if is_truth_seeking:
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric(t("真相可能概率"), f"{truth_prob}%" if truth_prob is not None else t("暂无数据"))
+        with col2:
+            st.metric(t("证据链完整度"), f"{evidence_score}/100" if evidence_score is not None else t("暂无数据"))
+        with col3:
+            st.metric(t("引用来源数"), str(sources))
+    else:
+        # Debate understanding: show source count + debate landscape label
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric(t("引用来源数"), str(sources))
+        with col2:
+            # Count stakeholder groups mentioned in report
+            camp_count = len(re.findall(r"###\s+", report))
+            st.metric(t("📊 争议格局"), str(max(camp_count, 1)))
 
-    col_l, col_r = st.columns(2)
-    with col_l:
-        truth_probability_gauge(truth_prob)
-    with col_r:
+    if is_truth_seeking:
+        col_l, col_r = st.columns(2)
+        with col_l:
+            truth_probability_gauge(truth_prob)
+        with col_r:
+            sentiment_data = _extract_sentiment(report)
+            if sentiment_data:
+                sentiment_bar_chart(sentiment_data)
+            else:
+                st.markdown(f"""
+                <div style="text-align:center; padding:60px 20px; opacity:0.4;">
+                    <p>{t('评论区情绪分布')}</p>
+                    <p style="font-size:13px;">{t('暂无数据')}</p>
+                </div>
+                """, unsafe_allow_html=True)
+    else:
+        # Debate understanding: just show sentiment chart full-width
         sentiment_data = _extract_sentiment(report)
         if sentiment_data:
             sentiment_bar_chart(sentiment_data)
         else:
-            st.markdown(f"""
-            <div style="text-align:center; padding:60px 20px; opacity:0.4;">
-                <p>{t('评论区情绪分布')}</p>
-                <p style="font-size:13px;">{t('暂无数据')}</p>
-            </div>
-            """, unsafe_allow_html=True)
+            st.caption(t("暂无数据"))
 
 
 def _render_info_dashboard(topic: str, search_results: list[dict]):

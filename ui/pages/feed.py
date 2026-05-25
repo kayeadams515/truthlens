@@ -46,12 +46,20 @@ def render_feed():
 
     if selected_mode == "insight":
         st.caption(t("🧬 争议洞察：社交媒体舆论阵营深度分析，适合吃瓜、八卦、热门话题。约 20-40 秒。"))
+        insight_guide = st.text_input(
+            t("我想了解..."),
+            placeholder=t("可选：你想了解这个话题的什么方面？"),
+            label_visibility="collapsed",
+            key="feed_insight_guide",
+        )
     else:
         st.caption(t("📋 资讯模式：快速搜集和梳理信息，展示事件全貌。"))
 
     if search_btn and topic.strip():
         st.session_state.analyze_topic = topic.strip()
         st.session_state.analyze_mode = selected_mode
+        if selected_mode == "insight":
+            st.session_state.insight_guidance = st.session_state.get("feed_insight_guide", "").strip()
         st.session_state.from_feed = True
         st.session_state.current_page = "instant"
         st.rerun()
