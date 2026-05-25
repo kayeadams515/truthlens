@@ -52,14 +52,14 @@ def _search_duckduckgo(query: str, cfg: dict, max_results: int = 10,
                         domains: Optional[list[str]] = None, **kwargs) -> list[dict]:
     # DuckDuckGo does not support domain filtering via site: syntax — it causes timeouts.
     # Domains are ignored for this provider.
-    try:
-        from ddgs import DDGS
-    except ImportError:
-        from duckduckgo_search import DDGS
     results = []
     try:
+        try:
+            from ddgs import DDGS
+        except ImportError:
+            from duckduckgo_search import DDGS
         with DDGS() as ddgs:
-            for r in ddgs.text(query, max_results=max_results, max_time=10):
+            for r in ddgs.text(query, max_results=max_results):
                 results.append({
                     "title": r.get("title", ""),
                     "url": r.get("href", ""),

@@ -9,7 +9,7 @@ anthropic>=0.25.0
 
 # Web Search
 tavily-python>=0.3.0
-duckduckgo-search>=8.0.0
+ddgs>=9.0
 requests>=2.28.0
 
 # Packaging (for single-executable builds)
