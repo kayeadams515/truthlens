@@ -75,8 +75,8 @@ for pkg in ["streamlit", "crewai", "plotly", "litellm", "langchain_core"]:
 
 datas = []
 
-# Streamlit frontend static assets
-for pkg in ["streamlit"]:
+# Frontend static assets + translations needed at runtime
+for pkg in ["streamlit", "crewai"]:
     try:
         datas.extend(collect_data_files(pkg))
     except Exception:
