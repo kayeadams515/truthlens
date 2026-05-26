@@ -99,7 +99,6 @@ docker run -p 8501:8501 truthlens
 | 引擎 | 需要 API Key | 域名过滤 | 特点 |
 |------|-------------|---------|------|
 | Tavily | 是 | 支持 | AI 优化，全文搜索 |
-| DuckDuckGo | 否 | 不支持 | 免费，无需注册 |
 | Brave Search | 是（免费 2000次/月） | 支持 | 独立索引，隐私友好 |
 | SerpAPI | 是 | 支持 | Google 结果聚合 |
 | SearXNG | 需自建实例 | 不支持 | 自托管元搜索引擎 |
