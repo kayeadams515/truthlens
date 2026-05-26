@@ -74,10 +74,9 @@ docker run -p 8501:8501 truthlens
 
 1. 启动后自动弹出语言选择 → 引导窗口
 2. 点击「打开设置」→ 选择 LLM 厂商、填入 API Key
-3. 可选：切换到 DuckDuckGo 搜索（免费，无需 Key）
-4. 保存设置 → 开始使用
+3. 保存设置 → 开始使用
 
-> 推荐组合：DeepSeek（便宜、中文能力强）+ DuckDuckGo（免费搜索）
+> 推荐组合：DeepSeek（便宜、中文能力强）+ Tavily（大量免费搜索额度）
 
 ## 支持的 LLM
 
@@ -112,13 +111,6 @@ docker run -p 8501:8501 truthlens
 cd TruthLens
 git pull
 pip install -r requirements.txt
-```
-
-如果 DuckDuckGo 搜索报错，旧版 `duckduckgo_search` 已被重命名为 `ddgs`：
-
-```bash
-pip uninstall duckduckgo_search -y
-pip install ddgs
 ```
 
 桌面应用重新构建：
