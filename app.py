@@ -472,13 +472,10 @@ def _settings_dialog():
             )
             st.session_state.searxng_base_url = base_url
             st.caption(t("需自行部署 SearXNG 实例"))
-        elif provider == "duckduckgo":
-            st.caption(t("DuckDuckGo 免费使用，无需 API Key。可能被限速。"))
-
         st.divider()
 
         # -- Domain filter --
-        st.caption(t("域名过滤（Tavily / Brave / SerpAPI 支持按域名搜索，DDGS / SearXNG 不支持）"))
+        st.caption(t("域名过滤（Tavily / Brave / SerpAPI 支持按域名搜索，SearXNG 不支持）"))
 
         unrestricted = st.checkbox(
             t("全量搜索（不限制域名）"),
@@ -648,7 +645,7 @@ def _onboarding_dialog():
     "2. 在 **🔍 情报 LLM** 标签页选择厂商，填入 API Key\n"
     "3. 点击 **💾 保存设置**\n"
     "4. 点 **🧪 测试连接** 验证可用性\n\n"
-    "> 💡 **推荐**：DeepSeek 便宜且中文能力强；DuckDuckGo 搜索免费无需 Key。\n"
+    "> 💡 **推荐**：DeepSeek 便宜且中文能力强；Brave Search 提供每月 2000 次免费搜索额度。\n"
     "> 所有配置保存在本地 `data/settings.json`，不会上传。"))
     col1, col2 = st.columns(2)
     with col1:

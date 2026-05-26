@@ -245,7 +245,7 @@ def _run_insight_mode(topic: str, guidance: str = ""):
 
         if not search_results:
             st.warning(t("未找到关于「{topic}」的社交媒体讨论，请尝试换一个关键词或更宽泛的表述。", topic=topic))
-            st.caption(t("💡 提示：确保已在设置中配置搜索 API Key（如 Tavily），或尝试切换到 DuckDuckGo。"))
+            st.caption(t("💡 提示：确保已在设置中配置搜索 API Key（如 Tavily 或 Brave Search）。"))
             return
 
         st.success(t("✅ 搜集到 {count} 条相关讨论", count=len(search_results)))

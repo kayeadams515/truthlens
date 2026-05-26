@@ -1,4 +1,4 @@
-"""Unified search provider abstraction — Tavily, DuckDuckGo, Brave, SerpAPI, SearXNG."""
+"""Unified search provider abstraction — Tavily, Brave, SerpAPI, SearXNG."""
 
 from __future__ import annotations
 
@@ -8,7 +8,6 @@ from utils.logger import logger
 
 PROVIDERS = {
     "tavily":       "Tavily",
-    "duckduckgo":   "DuckDuckGo",
     "brave":        "Brave Search",
     "serpapi":      "SerpAPI",
     "searxng":      "SearXNG",
@@ -232,7 +231,6 @@ def _search_reddit(query: str, max_results: int = 10, **kwargs) -> list[dict]:
 
 _SEARCH_IMPLS = {
     "tavily": _search_tavily,
-    "duckduckgo": _search_duckduckgo,
     "brave": _search_brave,
     "serpapi": _search_serpapi,
     "searxng": _search_searxng,

@@ -85,7 +85,7 @@ def render_feed():
     global_news = weekly_data.get("global", [])
 
     if weekly_data.get("error"):
-        st.warning(f"⚠️ {t('新闻获取失败')}：{weekly_data['error']}。{t('请检查搜索配置或尝试切换 DuckDuckGo。')}")
+        st.warning(f"⚠️ {t('新闻获取失败')}：{weekly_data['error']}。{t('请检查搜索配置或尝试其他搜索引擎。')}")
 
     # China news
     col_title, col_btn = st.columns([5, 1])

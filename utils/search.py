@@ -201,7 +201,7 @@ def bilingual_search(query: str, max_results: int = 10,
     """Search Chinese and English sources separately, then interleave results.
 
     Returns combined list with CN/EN results alternating, up to max_results.
-    For providers that don't support domain filtering (DuckDuckGo, SerpAPI,
+    For providers that don't support domain filtering (SerpAPI,
     SearXNG), a single undomain-restricted search is performed instead.
     """
     from utils.search_providers import search

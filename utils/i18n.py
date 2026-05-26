@@ -105,11 +105,8 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "en": "Free 2,000 queries/month. Apply at brave.com/search/api"
     },
     "需自行部署 SearXNG 实例": {"en": "Requires self-hosted SearXNG instance"},
-    "DuckDuckGo 免费使用，无需 API Key。可能被限速。": {
-        "en": "DuckDuckGo is free, no API Key needed. May be rate-limited."
-    },
-    "域名过滤（Tavily / Brave / SerpAPI 支持按域名搜索，DDGS / SearXNG 不支持）": {
-        "en": "Domain Filter (Tavily / Brave / SerpAPI support domain filtering; DDGS / SearXNG do not)"
+    "域名过滤（Tavily / Brave / SerpAPI 支持按域名搜索，SearXNG 不支持）": {
+        "en": "Domain Filter (Tavily / Brave / SerpAPI support domain filtering; SearXNG does not)"
     },
     "全量搜索（不限制域名）": {"en": "Search all domains (unrestricted)"},
     "当前覆盖 {count} 个站点": {"en": "Currently covering {count} sites"},
@@ -307,8 +304,8 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
     "未找到关于「{topic}」的社交媒体讨论，请尝试换一个关键词或更宽泛的表述。": {
         "en": "No social media discussions found for「{topic}」. Try a different keyword or broader phrasing."
     },
-    "💡 提示：确保已在设置中配置搜索 API Key（如 Tavily），或尝试切换到 DuckDuckGo。": {
-        "en": "💡 Tip: Make sure a search API Key is configured in Settings (e.g. Tavily), or try switching to DuckDuckGo."
+    "💡 提示：确保已在设置中配置搜索 API Key（如 Tavily 或 Brave Search）。": {
+        "en": "💡 Tip: Make sure a search API Key is configured in Settings (e.g. Tavily or Brave Search)."
     },
     "✅ 搜集到 {count} 条相关讨论": {"en": "✅ Found {count} relevant discussions"},
     "🧐 正在识别舆论阵营与情绪分布...": {
@@ -1634,7 +1631,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
     "2. 在 **🔍 情报 LLM** 标签页选择厂商，填入 API Key\n"
     "3. 点击 **💾 保存设置**\n"
     "4. 点 **🧪 测试连接** 验证可用性\n\n"
-    "> 💡 **推荐**：DeepSeek 便宜且中文能力强；DuckDuckGo 搜索免费无需 Key。\n"
+    "> 💡 **推荐**：DeepSeek 便宜且中文能力强；Brave Search 提供每月 2000 次免费搜索额度。\n"
     "> 所有配置保存在本地 `data/settings.json`，不会上传。": {
         "en": (
             "### 🎉 Welcome! Configure your AI model first\n\n"
@@ -1644,7 +1641,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
             "2. In the **🔍 Intel LLM** tab, select a provider and enter your API Key\n"
             "3. Click **💾 Save Settings**\n"
             "4. Click **🧪 Test Connection** to verify\n\n"
-            "> 💡 **Recommended**: DeepSeek is affordable with strong multilingual support; DuckDuckGo search is free, no Key needed.\n"
+            "> 💡 **Recommended**: DeepSeek is affordable with strong multilingual support; Brave Search offers 2,000 free searches per month.\n"
             "> All configuration is saved locally in `data/settings.json` — nothing is uploaded."
         ),
     },
@@ -1673,8 +1670,8 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
     # Missing entries added during wrapping
     "辩论": {"en": "Debate"},
     "新闻获取失败": {"en": "News fetch failed"},
-    "请检查搜索配置或尝试切换 DuckDuckGo。": {
-        "en": "Please check search configuration or try switching to DuckDuckGo."
+    "请检查搜索配置或尝试其他搜索引擎。": {
+        "en": "Please check search configuration or try another search engine."
     },
     "📋 历史透视报告": {"en": "📋 Analysis History"},
     "📊 数据透视": {"en": "📊 Data Dashboard"},
