@@ -94,19 +94,6 @@ docker run -p 8501:8501 truthlens
 | SearXNG | 需自建实例 | 不支持 | 自托管元搜索引擎 |
 | Reddit | 否 | — | 公共 API，海外社区舆论 |
 
-## 更新
-
-```bash
-cd TruthLens
-git pull
-pip install -r requirements.txt
-```
-
-桌面应用重新构建：
-
-```bash
-./scripts/build.sh
-```
 
 ## 项目结构
 
@@ -154,24 +141,6 @@ TruthLens/
     └── build.bat              # Windows 构建脚本
 ```
 
-## 桌面应用打包
-
-使用 PyInstaller + pywebview 将应用打包为原生桌面窗口：
-
-- **架构**：父进程启动 pywebview 原生窗口，子进程运行 Streamlit headless 服务器
-- **窗口关闭**：自动终止 Streamlit 子进程
-- **用户数据**：打包后自动存储到 `~/.truthlens/`（不影响应用包本身）
-- **首次启动**：引导向导帮助用户配置 API Key
-
-```bash
-# macOS
-./scripts/build.sh
-# 产物：dist/AI资讯透视镜.app + dist/VisionLens（187MB）
-
-# Windows
-scripts\build.bat
-# 产物：dist\VisionLens.exe
-```
 
 ## 数据隐私
 
