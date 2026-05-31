@@ -96,18 +96,6 @@ Supports **dual LLM configuration**: you can assign different providers/models f
 | [SearXNG](https://searxng.org) | Self-hosted instance | Not supported | Private meta-search engine |
 | Reddit | No | — | Public API for community opinion |
 
-## Updating
-
-```bash
-cd TruthLens
-git pull
-pip install -r requirements.txt
-```
-
-Rebuild the desktop app:
-```bash
-./scripts/build.sh
-```
 
 ## Project Structure
 
@@ -155,24 +143,6 @@ TruthLens/
     └── build.bat              # Windows build script
 ```
 
-## Desktop App Packaging
-
-Uses PyInstaller + pywebview to package the app as a native desktop window:
-
-- **Architecture**: Parent process launches a pywebview native window; child process runs Streamlit headless server
-- **Window close**: Automatically terminates the Streamlit subprocess
-- **User data**: Stored at `~/.truthlens/` (independent of the app bundle)
-- **First launch**: Setup wizard guides API key configuration
-
-```bash
-# macOS
-./scripts/build.sh
-# Output: dist/AI资讯透视镜.app + dist/VisionLens (~187 MB)
-
-# Windows
-scripts\build.bat
-# Output: dist\VisionLens.exe
-```
 
 ## Data Privacy
 
