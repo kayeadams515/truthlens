@@ -43,19 +43,7 @@ Both deep analysis modes adapt their output framework based on the AI's detectio
 
 ## Quick Start
 
-### Option 1: Desktop App (Recommended — no Python required)
-
-Download the latest `AI资讯透视镜.app` release (macOS). Double-click to run. The first launch will open a setup wizard to configure your LLM API Key.
-
-Build from source:
-```bash
-git clone https://github.com/KayeAdams515/TruthLens.git
-cd TruthLens
-pip install -r requirements.txt
-./scripts/build.sh       # macOS → dist/AI资讯透视镜.app
-```
-
-### Option 2: Command Line
+### Option 1: Command Line
 
 ```bash
 git clone https://github.com/KayeAdams515/TruthLens.git
@@ -66,7 +54,7 @@ streamlit run app.py
 
 Open `http://localhost:8501` in your browser.
 
-### Option 3: Docker
+### Option 2: Docker
 
 ```bash
 docker build -t truthlens .
