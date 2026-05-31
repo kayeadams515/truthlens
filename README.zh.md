@@ -41,20 +41,8 @@ AI资讯透视镜用多个 AI Agent 互相交叉验证，模拟「搜集 → 质
 
 ## 快速开始
 
-### 方式一：桌面应用（推荐，无需安装 Python）
 
-下载 `AI资讯透视镜.app`（macOS），双击运行。首次启动将弹出引导向导，配置 LLM API Key 即可使用。
-
-构建桌面应用：
-
-```bash
-git clone https://github.com/KayeAdams515/TruthLens.git
-cd TruthLens
-pip install -r requirements.txt
-./scripts/build.sh       # macOS → dist/AI资讯透视镜.app
-```
-
-### 方式二：命令行运行
+### 方式一：命令行运行
 
 ```bash
 git clone https://github.com/KayeAdams515/TruthLens.git
@@ -65,7 +53,7 @@ streamlit run app.py
 
 浏览器访问 `http://localhost:8501`
 
-### 方式三：Docker
+### 方式二：Docker
 
 ```bash
 docker build -t truthlens .
