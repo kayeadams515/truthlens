@@ -1779,6 +1779,23 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
     },
     "观点类型": {"en": "View Types"},
     " 种": {"en": " types"},
+
+    # =========================================================================
+    # API Key Protection (server deployment)
+    # =========================================================================
+    "已配置，输入新值可替换": {"en": "Configured — type to replace"},
+    "输入新 API Key...": {"en": "Enter new API Key..."},
+    "输入新 Key...": {"en": "Enter new Key..."},
+    "取消": {"en": "Cancel"},
+    "确认更换 Key": {"en": "Confirm Change"},
+    "确认更换": {"en": "Confirm Change"},
+    "🔄 更换": {"en": "🔄 Change"},
+    "🔄 更换 API Key": {"en": "🔄 Change API Key"},
+    "新 API Key": {"en": "New API Key"},
+    "新 {label}": {"en": "New {label}"},
+    "✓ 已通过环境变量配置（服务器只读）": {"en": "✓ Configured via environment variable (server read-only)"},
+    "✓ {label} — 已通过环境变量配置（服务器只读）": {"en": "✓ {label} — configured via environment variable (server read-only)"},
+    "如需更换，请联系服务器管理员": {"en": "Contact the server administrator to change"},
 }
 
 # ============================================================

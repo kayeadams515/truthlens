@@ -30,15 +30,22 @@ def _load_settings() -> dict:
 
 def _save_settings():
     """Persist current LLM, search provider, domain settings, and provider cache to disk."""
+    env_keys = st.session_state.get("_env_keys", set())
     payload = {}
     for prefix in ["search_llm", "integration_llm"]:
         payload[prefix] = {
             k: st.session_state.get(f"{prefix}_{k}", "")
             for k in LLM_SETTING_KEYS
         }
+        # Don't persist env-var-configured keys to disk
+        if f"{prefix}_api_key" in env_keys:
+            payload[prefix]["api_key"] = ""
     payload["search_provider"] = st.session_state.get("search_provider", "tavily")
     for key in ("tavily_api_key", "brave_api_key", "serpapi_api_key", "searxng_base_url"):
         payload[key] = st.session_state.get(key, "")
+        # Don't persist env-var-configured keys to disk
+        if key in env_keys:
+            payload[key] = ""
     payload["search_domains"] = st.session_state.get("search_domains", {})
     payload["search_unrestricted"] = st.session_state.get("search_unrestricted", False)
     payload["llm_config_cache"] = st.session_state.get("llm_config_cache", {})
@@ -74,6 +81,9 @@ def main():
                 st.session_state.search_domains[k] = v
     if "search_unrestricted" not in st.session_state:
         st.session_state.search_unrestricted = False
+    # Track which API keys come from environment variables (server deployment — prevents viewing)
+    if "_env_keys" not in st.session_state:
+        st.session_state._env_keys = set()
     saved = _load_settings()
     for prefix in ["search_llm", "integration_llm"]:
         if f"{prefix}_provider" not in st.session_state:
@@ -82,12 +92,22 @@ def main():
             st.session_state[f"{prefix}_model"] = saved_cfg.get("model", "deepseek/deepseek-chat")
             st.session_state[f"{prefix}_api_key"] = saved_cfg.get("api_key", "")
             st.session_state[f"{prefix}_base_url"] = saved_cfg.get("base_url", "https://api.deepseek.com")
+        # Environment variable override for API keys (server deployment — not viewable in UI)
+        env_key = os.environ.get(f"{prefix.upper()}_API_KEY", "")
+        if env_key:
+            st.session_state[f"{prefix}_api_key"] = env_key
+            st.session_state._env_keys.add(f"{prefix}_api_key")
     # Search provider
     if "search_provider" not in st.session_state:
         st.session_state.search_provider = saved.get("search_provider", "tavily")
     for key in ("tavily_api_key", "brave_api_key", "serpapi_api_key", "searxng_base_url"):
         if key not in st.session_state:
-            st.session_state[key] = saved.get(key, "") or os.environ.get(key.upper(), "")
+            st.session_state[key] = saved.get(key, "")
+        # Environment variable override (server deployment — not viewable in UI)
+        env_val = os.environ.get(key.upper(), "")
+        if env_val:
+            st.session_state[key] = env_val
+            st.session_state._env_keys.add(key)
     # Provider config cache: persist per-provider settings so switching back restores keys
     if "llm_config_cache" not in st.session_state:
         st.session_state.llm_config_cache = saved.get("llm_config_cache", {})
@@ -270,6 +290,17 @@ PROVIDER_MODELS = {
 
 CUSTOM_MODEL_TOKEN = "✏️ 自定义模型..."
 
+_KEY_MASK_PLACEHOLDER = "••••••••"
+
+def _mask_api_key(key: str) -> str:
+    """Mask an API key for display, keeping only a format hint (last 4 chars)."""
+    if not key or len(key) <= 8:
+        return _KEY_MASK_PLACEHOLDER
+    suffix = key[-4:]
+    if key.startswith(("sk-", "tvly-", "BSA")):
+        return f"{key[:4]}••••{suffix}"
+    return f"••••••{suffix}"
+
 
 def _test_llm_connection(prefix: str):
     """Test LLM connectivity using CrewAI. Returns (ok: bool, message: str)."""
@@ -382,14 +413,53 @@ def _render_llm_config_section(prefix: str, label: str):
     else:
         st.session_state[f"{prefix}_model"] = selected
 
-    api_key_val = st.text_input(
-        t("API Key"),
-        value=st.session_state.get(f"{prefix}_api_key", ""),
-        type="password",
-        key=f"settings_{prefix}_api_key",
-        placeholder=t("输入 API Key"),
-    )
-    st.session_state[f"{prefix}_api_key"] = api_key_val
+    current_api_key = st.session_state.get(f"{prefix}_api_key", "")
+    is_env_key = f"{prefix}_api_key" in st.session_state.get("_env_keys", set())
+
+    if is_env_key:
+        st.success(t("✓ 已通过环境变量配置（服务器只读）"))
+        st.caption(t("如需更换，请联系服务器管理员"))
+    elif current_api_key:
+        # Already configured — show masked display with change button
+        show_change = st.session_state.get(f"_show_change_{prefix}", False)
+        if show_change:
+            new_key = st.text_input(
+                t("新 API Key"),
+                type="password",
+                key=f"_new_{prefix}_api_key",
+                placeholder=t("输入新 API Key..."),
+            )
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button(t("取消"), key=f"_cancel_{prefix}"):
+                    st.session_state[f"_show_change_{prefix}"] = False
+                    st.rerun()
+            with col2:
+                if st.button(t("确认更换 Key"), key=f"_confirm_{prefix}"):
+                    if new_key:
+                        st.session_state[f"{prefix}_api_key"] = new_key
+                    st.session_state[f"_show_change_{prefix}"] = False
+                    st.rerun()
+        else:
+            st.text_input(
+                t("API Key"),
+                value=_mask_api_key(current_api_key),
+                disabled=True,
+                key=f"_masked_{prefix}_api_key",
+            )
+            if st.button(t("🔄 更换 API Key"), key=f"_change_btn_{prefix}"):
+                st.session_state[f"_show_change_{prefix}"] = True
+                st.rerun()
+    else:
+        # Not configured — show empty input
+        api_key_val = st.text_input(
+            t("API Key"),
+            type="password",
+            key=f"settings_{prefix}_api_key",
+            placeholder=t("输入 API Key"),
+        )
+        if api_key_val:
+            st.session_state[f"{prefix}_api_key"] = api_key_val
 
     base_url_val = st.text_input(
         t("Base URL（可选）"),
@@ -398,6 +468,55 @@ def _render_llm_config_section(prefix: str, label: str):
         placeholder=defaults.get("base_url", t("留空则使用默认地址")),
     )
     st.session_state[f"{prefix}_base_url"] = base_url_val
+
+
+def _render_search_api_key(session_key: str, label: str, placeholder: str):
+    """Render a search provider API key input with masking after configuration."""
+    current_key = st.session_state.get(session_key, "")
+    is_env_key = session_key in st.session_state.get("_env_keys", set())
+
+    if is_env_key:
+        st.success(t("✓ {label} — 已通过环境变量配置（服务器只读）", label=label))
+        st.caption(t("如需更换，请联系服务器管理员"))
+    elif current_key:
+        show_change = st.session_state.get(f"_show_change_{session_key}", False)
+        if show_change:
+            new_key = st.text_input(
+                t("新 {label}", label=label),
+                type="password",
+                key=f"_new_{session_key}",
+                placeholder=t("输入新 Key..."),
+            )
+            col_c, col_cf = st.columns(2)
+            with col_c:
+                if st.button(t("取消"), key=f"_cancel_{session_key}"):
+                    st.session_state[f"_show_change_{session_key}"] = False
+                    st.rerun()
+            with col_cf:
+                if st.button(t("确认更换 Key"), key=f"_confirm_{session_key}"):
+                    if new_key:
+                        st.session_state[session_key] = new_key
+                    st.session_state[f"_show_change_{session_key}"] = False
+                    st.rerun()
+        else:
+            st.text_input(
+                label,
+                value=_mask_api_key(current_key),
+                disabled=True,
+                key=f"_masked_{session_key}",
+            )
+            if st.button(t("🔄 更换"), key=f"_change_{session_key}"):
+                st.session_state[f"_show_change_{session_key}"] = True
+                st.rerun()
+    else:
+        val = st.text_input(
+            label,
+            type="password",
+            key=f"settings_{session_key}",
+            placeholder=placeholder,
+        )
+        if val:
+            st.session_state[session_key] = val
 
 
 @st.dialog(t("⚙️ 设置"), width="large")
@@ -437,32 +556,12 @@ def _settings_dialog():
 
         # -- Provider-specific config --
         if provider == "tavily":
-            api_key = st.text_input(
-                "Tavily API Key",
-                value=st.session_state.get("tavily_api_key", ""),
-                type="password",
-                key="settings_tavily_api_key",
-                placeholder="tvly-...",
-            )
-            st.session_state.tavily_api_key = api_key
+            _render_search_api_key("tavily_api_key", "Tavily API Key", "tvly-...")
         elif provider == "brave":
-            api_key = st.text_input(
-                "Brave Search API Key",
-                value=st.session_state.get("brave_api_key", ""),
-                type="password",
-                key="settings_brave_api_key",
-                placeholder="BSA...",
-            )
-            st.session_state.brave_api_key = api_key
+            _render_search_api_key("brave_api_key", "Brave Search API Key", "BSA...")
             st.caption(t("免费 2000 次/月，在 brave.com/search/api 申请"))
         elif provider == "serpapi":
-            api_key = st.text_input(
-                "SerpAPI Key",
-                value=st.session_state.get("serpapi_api_key", ""),
-                type="password",
-                key="settings_serpapi_api_key",
-            )
-            st.session_state.serpapi_api_key = api_key
+            _render_search_api_key("serpapi_api_key", "SerpAPI Key", "")
         elif provider == "searxng":
             base_url = st.text_input(
                 t("SearXNG 实例地址"),
