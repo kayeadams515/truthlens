@@ -7,6 +7,7 @@ from utils.logger import logger
 from utils.persistence import load_reports
 from utils.weekly_news import fetch_weekly_hot_news
 from utils.i18n import t
+from utils.audit import audit_and_display
 
 
 def render_feed():
@@ -169,7 +170,7 @@ def render_feed():
                 # Render full report with dashboard
                 report_content = report.get("markdown_report", "")
                 st.markdown('<div class="report-container">', unsafe_allow_html=True)
-                st.markdown(report_content, unsafe_allow_html=True)
+                audit_and_display(report_content, st.markdown, cache_key=f"history_{report['id']}", unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
                 # Dashboard for history

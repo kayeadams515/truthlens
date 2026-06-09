@@ -1824,6 +1824,72 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
     "✓ 已通过环境变量配置（服务器只读）": {"en": "✓ Configured via environment variable (server read-only)"},
     "✓ {label} — 已通过环境变量配置（服务器只读）": {"en": "✓ {label} — configured via environment variable (server read-only)"},
     "如需更换，请联系服务器管理员": {"en": "Contact the server administrator to change"},
+
+    # ---- zh-beta compliance audit ----
+    "中文（Beta）": {"en": "Chinese (Beta)"},
+    "⚠️ 该内容未通过安全审核，请尝试重新提问。": {"en": "⚠️ Content did not pass safety review. Please try a different question."},
+    "⚠️ **内容审核未通过**": {"en": "⚠️ **Content Review Failed**"},
+
+    # ---- Audit Agent System Prompt ----
+    "prompt.audit.system": {
+        "zh": (
+            "# Role\n"
+            "你是一名资深的新闻合规官，专门负责审核 AI 生成的资讯内容。\n\n"
+            "# Task\n"
+            "分析并判定输入的内容是否符合中国大陆的互联网内容生产规范（特别是政治安全、社会稳定及法律法规要求）。\n\n"
+            "# Rules\n"
+            "1. 严禁涉及：政治敏感话题、国家政策攻击、煽动社会情绪、虚假新闻或不实信息。\n"
+            "2. 语言风格：必须保持客观、中立、理性的新闻报道口径。\n"
+            "3. 若内容合规，请仅输出：[PASS]\n"
+            "4. 若内容违规，请输出：[REJECT] 以及简短的违规原因说明。\n\n"
+            "# Process\n"
+            "- 请进行多维度扫描：敏感关键词匹配、语境意图分析、潜在风险评估。\n"
+            "- 保持极高的合规敏锐度，如果内容处于「灰色地带」，请一律判定为 [REJECT]。"
+        ),
+        "en": (
+            "# Role\n"
+            "You are a senior news compliance officer responsible for reviewing AI-generated news content.\n\n"
+            "# Task\n"
+            "Analyze and determine whether the input content complies with mainland China's internet content production regulations "
+            "(particularly regarding political security, social stability, and legal/regulatory requirements).\n\n"
+            "# Rules\n"
+            "1. Strictly prohibited: politically sensitive topics, attacks on national policy, incitement of social unrest, fake news or disinformation.\n"
+            "2. Tone: must maintain an objective, neutral, and rational journalistic standard.\n"
+            "3. If the content is compliant, output ONLY: [PASS]\n"
+            "4. If the content violates regulations, output: [REJECT] followed by a brief explanation of the violation.\n\n"
+            "# Process\n"
+            "- Perform multi-dimensional scanning: sensitive keyword matching, contextual intent analysis, potential risk assessment.\n"
+            "- Maintain extremely high compliance sensitivity. If the content falls into a «gray zone», always rule [REJECT]."
+        ),
+    },
+
+    # ---- Beta Mode Pre-Constraint (appended to generation prompts) ----
+    "prompt.beta.preconstraint": {
+        "zh": (
+            "---\n\n"
+            "**重要合规约束（中国大陆互联网内容管理规定）**：\n\n"
+            "你正在为中国大陆用户提供新闻资讯服务。请严格遵守以下守则：\n\n"
+            "1. 仅输出客观事实，严禁加入带有偏见的评论。\n"
+            "2. 避免讨论任何可能引发政治争议的话题。\n"
+            "3. 确保所有引用信息准确，严禁编造数据。\n"
+            "4. 内容须符合《生成式人工智能服务管理暂行办法》的要求。\n"
+            "5. 不煽动社会对立情绪或传播未经证实的谣言。\n"
+            "6. 涉及争议话题时，优先引用权威官方信息。\n\n"
+            "请注意，你的输出将发布给中国大陆用户，必须严格遵守上述规定。"
+        ),
+        "en": (
+            "---\n\n"
+            "**Important Compliance Constraints (Mainland China Internet Content Regulations)**：\n\n"
+            "You are providing news information services for mainland China users. Please strictly adhere to the following:\n\n"
+            "1. Output only objective facts; strictly avoid biased commentary.\n"
+            "2. Avoid discussing any topics that may provoke political controversy.\n"
+            "3. Ensure all cited information is accurate; strictly prohibit fabricating data.\n"
+            "4. Content must comply with the provisions of the «Generative AI Service Management Interim Measures».\n"
+            "5. Do not incite social division or spread unverified rumors.\n"
+            "6. When covering controversial topics, prioritize authoritative official sources.\n\n"
+            "Note: Your output will be published to mainland China users and must strictly comply with the above regulations."
+        ),
+    },
 }
 
 # ============================================================
@@ -1849,14 +1915,16 @@ def t(key: str, **kwargs) -> str:
         Translated and formatted string.
     """
     lang = _get_lang()
+    # Normalize zh-beta to zh for translation dictionary lookups
+    effective_lang = "zh" if lang == "zh-beta" else lang
     entry = _TRANSLATIONS.get(key)
 
     if entry:
-        result = entry.get(lang)
+        result = entry.get(effective_lang)
         if result is not None:
             pass  # Use the translation
-        elif lang == "zh":
-            # For zh, if no explicit zh entry, the key IS the Chinese text
+        elif effective_lang == "zh":
+            # For zh (and zh-beta), if no explicit zh entry, the key IS the Chinese text
             result = key
         else:
             # For en, if no en entry, fall back to key

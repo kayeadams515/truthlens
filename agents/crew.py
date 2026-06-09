@@ -10,6 +10,7 @@ from agents.judge import create_judge_agent
 from agents.editor import create_editor_agent
 from utils.logger import logger
 from utils.i18n import t
+from utils.audit import add_compliance_constraint
 
 
 def _build_tasks(
@@ -71,6 +72,7 @@ def _build_tasks(
         editor_desc = t("task.crew.editor")
         if available_images_text:
             editor_desc += "\n\n" + available_images_text
+        editor_desc = add_compliance_constraint(editor_desc)
         task_editor = Task(
             description=editor_desc,
             expected_output=t("task.crew.editor.expected"),
@@ -84,6 +86,7 @@ def _build_tasks(
         editor_desc = t("task.crew.editor.debate_map")
         if available_images_text:
             editor_desc += "\n\n" + available_images_text
+        editor_desc = add_compliance_constraint(editor_desc)
         task_editor = Task(
             description=editor_desc,
             expected_output=t("task.crew.editor.debate_map.expected"),

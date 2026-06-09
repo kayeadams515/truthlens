@@ -7,6 +7,7 @@ from config import is_any_llm_configured
 from utils.logger import logger
 from utils.i18n import t
 from utils.image_utils import score_images, format_images_for_llm
+from utils.audit import is_beta_mode, add_compliance_constraint, audit_and_display, audit_content
 
 
 def render_instant():
@@ -502,6 +503,8 @@ def _synthesize_insight_report(topic: str, opinion_data: dict, search_results: l
     if images_text:
         prompt += "\n\n" + images_text
 
+    prompt = add_compliance_constraint(prompt)
+
     try:
         return llm.call(messages=[{"role": "user", "content": prompt}])
     except Exception as e:
@@ -586,7 +589,7 @@ def _display_insight_result(topic: str, report: str, insight_data: dict):
     """, unsafe_allow_html=True)
 
     st.markdown('<div class="report-container">', unsafe_allow_html=True)
-    st.markdown(report, unsafe_allow_html=True)
+    audit_and_display(report, st.markdown, cache_key=f"insight_{topic[:30]}", unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
     # Dashboard — only show when camps are identified
@@ -1013,7 +1016,7 @@ def _display_controversy_report(topic: str, report: str):
     """, unsafe_allow_html=True)
 
     st.markdown('<div class="report-container">', unsafe_allow_html=True)
-    st.markdown(report, unsafe_allow_html=True)
+    audit_and_display(report, st.markdown, cache_key=f"controversy_{topic[:30]}", unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
 
@@ -1021,7 +1024,7 @@ def _display_info_result(topic: str, summary: str, search_results: list):
     """Display info mode results."""
     st.markdown(f"### {t('### 📋 信息梳理结果').lstrip('#').strip()}")
     st.markdown('<div class="report-container">', unsafe_allow_html=True)
-    st.markdown(summary, unsafe_allow_html=True)
+    audit_and_display(summary, st.markdown, cache_key=f"info_{topic[:30]}", unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
     with st.expander(t("📎 信息来源列表")):
@@ -1182,6 +1185,8 @@ def _summarize_info(topic: str, search_results: list[dict], images_text: str = "
             prompt = t("prompt.summarize_info", topic=topic, sources_text=sources_text)
             if images_text:
                 prompt += "\n\n" + images_text
+
+            prompt = add_compliance_constraint(prompt)
 
             return llm.call(messages=[{"role": "user", "content": prompt}])
         except Exception as e:
@@ -1408,7 +1413,15 @@ def _answer_followup(topic: str, report: str, question: str, mode: str,
         additional_context = _do_search(topic, question)
 
     # Answer
-    return _generate_answer(topic, report, question, additional_context, need_search)
+    answer = _generate_answer(topic, report, question, additional_context, need_search)
+
+    # Audit the answer in beta mode
+    if is_beta_mode():
+        passed, audited = audit_content(answer)
+        if not passed:
+            return audited  # Returns fallback message with reason
+
+    return answer
 
 
 def _should_search(topic: str, report: str, question: str) -> bool:
@@ -1463,6 +1476,8 @@ def _generate_answer(topic: str, report: str, question: str,
 
         prompt = t("prompt.generate_answer", topic=topic, report=report[:3000],
                    search_note=search_note, question=question)
+
+        prompt = add_compliance_constraint(prompt)
 
         return llm.call(messages=[{"role": "user", "content": prompt}])
     except Exception as e:

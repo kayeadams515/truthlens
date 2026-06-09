@@ -666,8 +666,14 @@ def _settings_dialog():
 
     # ---- Language Selector ----
     st.divider()
-    lang_options = ["中文", "English"]
-    current_lang_idx = 0 if st.session_state.get("lang", "zh") == "zh" else 1
+    lang_options = ["中文", "中文（Beta）", "English"]
+    lang_code_map = {"中文": "zh", "中文（Beta）": "zh-beta", "English": "en"}
+    current_lang = st.session_state.get("lang", "zh")
+    current_lang_idx = 0
+    for i, label in enumerate(lang_options):
+        if lang_code_map[label] == current_lang:
+            current_lang_idx = i
+            break
     col_lang_label, col_lang_sel = st.columns([1, 2])
     with col_lang_label:
         st.caption(t("语言 / Language"))
@@ -679,7 +685,7 @@ def _settings_dialog():
             key="settings_lang_selector",
             label_visibility="collapsed",
         )
-        new_lang = "zh" if selected_lang == "中文" else "en"
+        new_lang = lang_code_map[selected_lang]
         if new_lang != st.session_state.get("lang", "zh"):
             st.session_state.lang = new_lang
             st.rerun()
@@ -723,10 +729,14 @@ def _language_selection_dialog():
         <p style="opacity:0.5; margin:6px 0 20px;">请选择界面语言</p>
     </div>
     """, unsafe_allow_html=True)
-    col_zh, col_en = st.columns(2)
+    col_zh, col_zhbeta, col_en = st.columns(3)
     with col_zh:
         if st.button("中文", use_container_width=True, type="primary"):
             st.session_state.lang = "zh"
+            st.rerun()
+    with col_zhbeta:
+        if st.button("中文（Beta）", use_container_width=True):
+            st.session_state.lang = "zh-beta"
             st.rerun()
     with col_en:
         if st.button("English", use_container_width=True):
