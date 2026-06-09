@@ -24,6 +24,14 @@ def render_feed():
         st.query_params.clear()
         st.rerun()
 
+    # ---- Settings button visibility toggle (type "Config" + Enter in search bar) ----
+    search_val = st.session_state.get("feed_search_input", "")
+    if search_val.strip().lower() == "config":
+        current = st.session_state.get("settings_visible", True)
+        st.session_state.settings_visible = not current
+        st.session_state.feed_search_input = ""
+        st.rerun()
+
     st.markdown(f"""
     <div style="text-align:center; margin-bottom:24px;">
         <h2>{t("📡 发现·透视报告")}</h2>

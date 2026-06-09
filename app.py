@@ -81,6 +81,9 @@ def main():
                 st.session_state.search_domains[k] = v
     if "search_unrestricted" not in st.session_state:
         st.session_state.search_unrestricted = False
+    # Settings button visibility (toggled by typing "Config" in search bar)
+    if "settings_visible" not in st.session_state:
+        st.session_state.settings_visible = True
     # Track which API keys come from environment variables (server deployment — prevents viewing)
     if "_env_keys" not in st.session_state:
         st.session_state._env_keys = set()
@@ -205,12 +208,13 @@ def main():
     </div>
     """, unsafe_allow_html=True)
 
-    # ---- Settings button (rendered in sidebar) ----
-    with st.sidebar:
-        st.divider()
-        if st.button(t("⚙️ 设置"), use_container_width=True):
-            st.session_state._trigger_settings = True
-            st.rerun()
+    # ---- Settings button (rendered in sidebar, hidden via "Config" toggle) ----
+    if st.session_state.get("settings_visible", True):
+        with st.sidebar:
+            st.divider()
+            if st.button(t("⚙️ 设置"), use_container_width=True):
+                st.session_state._trigger_settings = True
+                st.rerun()
 
     # ---- Settings dialog (called at top level, NOT inside sidebar) ----
     if st.session_state.pop("_trigger_settings", False):
