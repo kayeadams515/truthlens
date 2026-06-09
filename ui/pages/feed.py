@@ -1,6 +1,7 @@
 """Discovery Feed page — search + weekly news + history."""
 
 import streamlit as st
+from urllib.parse import quote
 
 from utils.logger import logger
 from utils.persistence import load_reports
@@ -10,6 +11,18 @@ from utils.i18n import t
 
 def render_feed():
     """Render the discovery feed page with search bar at top."""
+
+    # ---- Handle clickable news cards via query params ----
+    if "feed_topic" in st.query_params:
+        topic = st.query_params["feed_topic"]
+        mode = st.query_params.get("feed_mode", "info")
+        st.session_state.analyze_topic = topic
+        st.session_state.analyze_mode = mode
+        st.session_state.from_feed = True
+        st.session_state.current_page = "instant"
+        st.query_params.clear()
+        st.rerun()
+
     st.markdown(f"""
     <div style="text-align:center; margin-bottom:24px;">
         <h2>{t("📡 发现·透视报告")}</h2>
@@ -218,34 +231,21 @@ def _render_news_grid(news_items: list[dict], prefix: str):
 
 
 def _render_single_news_card(item: dict, idx: int, prefix: str):
-    """Render a single news card with expand-to-reveal action buttons."""
+    """Render a single news card — clicking the card goes directly to info analysis."""
     title_cn = item.get("title_cn") or item.get("title", t("未知"))
     location = _extract_location(item)
     event_brief = _extract_brief(item)
 
+    # Build URL with query params for clickable card navigation
+    topic_encoded = quote(title_cn, safe="")
+    card_url = f"?feed_topic={topic_encoded}&feed_mode=info"
+
     st.markdown(f"""
-    <div class="cyber-card" style="padding:14px;">
+    <a href="{card_url}" style="text-decoration:none; color:inherit;">
+    <div class="cyber-card" style="padding:14px; cursor:pointer;">
         <h4 class="card-title" style="font-size:14px; margin:6px 0;">{title_cn[:60]}</h4>
         <p style="opacity:0.7; font-size:13px; margin:4px 0;">{event_brief}</p>
         <span style="font-size:11px; opacity:0.5;">📍 {location}</span>
     </div>
+    </a>
     """, unsafe_allow_html=True)
-
-    selected_key = f"{prefix}_selected_{idx}"
-    if selected_key not in st.session_state:
-        st.session_state[selected_key] = False
-
-    if not st.session_state[selected_key]:
-        if st.button(t("🔍 分析此事件"), key=f"{prefix}_toggle_{idx}", use_container_width=True):
-            st.session_state[selected_key] = True
-            st.rerun()
-    else:
-        if st.button(t("✕ 收起"), key=f"{prefix}_toggle_{idx}", use_container_width=True):
-            st.session_state[selected_key] = False
-            st.rerun()
-        if st.button(t("📋 资讯模式"), key=f"{prefix}_info_{idx}", use_container_width=True):
-            st.session_state.analyze_topic = title_cn
-            st.session_state.analyze_mode = "info"
-            st.session_state.from_feed = True
-            st.session_state.current_page = "instant"
-            st.rerun()

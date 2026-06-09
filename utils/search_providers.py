@@ -38,13 +38,53 @@ def _search_tavily(query: str, cfg: dict, max_results: int = 10,
         max_results=max_results,
         include_answer=kwargs.get("include_answer", False),
         include_raw_content=True,
+        include_images=True,
         topic=kwargs.get("topic", "news"),
         days=kwargs.get("days", 7),
     )
     if domains:
         params["include_domains"] = domains
     resp = client.search(**params)
-    return resp.get("results", [])
+    # Collect top-level images (query-relevant, may be plain URL strings)
+    top_images = resp.get("images", [])
+    if not isinstance(top_images, list):
+        top_images = []
+
+    def _normalize(img):
+        """Normalize image entries: string → {url}, dict → keep as-is."""
+        if isinstance(img, str) and img.startswith("http"):
+            return {"url": img}
+        if isinstance(img, dict) and img.get("url"):
+            return {"url": img["url"]}
+        return None
+
+    results = []
+    # Prepend top-level Tavily images as a virtual high-authority result so they
+    # score highest during image selection. These are query-relevant editorial
+    # images curated by Tavily, not per-page UI elements.
+    top_normalized = [ni for ni in (_normalize(ti) for ti in top_images[:5]) if ni]
+    if top_normalized:
+        results.append({
+            "title": f"Topic Images: {query[:80]}",
+            "url": "https://tavily.com",
+            "content": "",
+            "source": "Tavily Image Search",
+            "images": top_normalized,
+        })
+
+    for r in resp.get("results", []):
+        images = r.get("images", [])
+        if not isinstance(images, list):
+            images = []
+        normalized = [ni for ni in (_normalize(img) for img in images) if ni]
+        results.append({
+            "title": r.get("title", ""),
+            "url": r.get("url", ""),
+            "content": r.get("content", ""),
+            "source": "",
+            "images": normalized,
+        })
+    return results
 
 
 def _search_duckduckgo(query: str, cfg: dict, max_results: int = 10,
@@ -130,11 +170,16 @@ def _search_brave(query: str, cfg: dict, max_results: int = 10,
         data = resp.json()
         results = []
         for r in data.get("web", {}).get("results", []):
+            images = []
+            thumbnail = r.get("thumbnail")
+            if thumbnail and isinstance(thumbnail, dict) and thumbnail.get("src"):
+                images.append({"url": thumbnail["src"]})
             results.append({
                 "title": r.get("title", ""),
                 "url": r.get("url", ""),
                 "content": r.get("description", ""),
                 "source": "",
+                "images": images,
             })
         return results
     except Exception as e:
@@ -160,11 +205,27 @@ def _search_serpapi(query: str, cfg: dict, max_results: int = 10,
         data = resp.json()
         results = []
         for r in data.get("organic_results", []):
+            images = []
+            # Try thumbnail first
+            thumb = r.get("thumbnail")
+            if thumb and isinstance(thumb, str):
+                images.append({"url": thumb})
+            # Also check pagemap for article images
+            pagemap = r.get("pagemap", {})
+            if isinstance(pagemap, dict):
+                cse_image = pagemap.get("cse_image")
+                if isinstance(cse_image, list):
+                    for img in cse_image:
+                        if isinstance(img, dict) and img.get("src"):
+                            images.append({"url": img["src"]})
+                elif isinstance(cse_image, dict) and cse_image.get("src"):
+                    images.append({"url": cse_image["src"]})
             results.append({
                 "title": r.get("title", ""),
                 "url": r.get("link", ""),
                 "content": r.get("snippet", ""),
                 "source": r.get("source", ""),
+                "images": images,
             })
         return results
     except Exception as e:
@@ -186,11 +247,19 @@ def _search_searxng(query: str, cfg: dict, max_results: int = 10,
         data = resp.json()
         results = []
         for r in data.get("results", [])[:max_results]:
+            images = []
+            img_src = r.get("img_src")
+            if img_src and isinstance(img_src, str):
+                images.append({"url": img_src})
+            thumbnail = r.get("thumbnail")
+            if thumbnail and isinstance(thumbnail, str) and thumbnail not in [img_src]:
+                images.append({"url": thumbnail})
             results.append({
                 "title": r.get("title", ""),
                 "url": r.get("url", ""),
                 "content": r.get("content", ""),
                 "source": r.get("engine", ""),
+                "images": images,
             })
         return results
     except Exception as e:
@@ -212,6 +281,22 @@ def _search_reddit(query: str, max_results: int = 10, **kwargs) -> list[dict]:
         for child in data.get("data", {}).get("children", []):
             post = child.get("data", {})
             selftext = (post.get("selftext", "") or "")[:800]
+            # Extract best available image
+            images = []
+            preview = post.get("preview", {})
+            if isinstance(preview, dict):
+                preview_images = preview.get("images", [])
+                if isinstance(preview_images, list) and preview_images:
+                    for pi in preview_images:
+                        if isinstance(pi, dict):
+                            source = pi.get("source", {})
+                            if isinstance(source, dict) and source.get("url"):
+                                images.append({"url": source["url"].replace("&amp;", "&")})
+            # Fallback: use thumbnail if it's a real URL (not "self", "default", "nsfw")
+            if not images:
+                thumb = post.get("thumbnail", "")
+                if thumb and isinstance(thumb, str) and thumb.startswith("http"):
+                    images.append({"url": thumb})
             results.append({
                 "title": post.get("title", ""),
                 "url": f"https://reddit.com{post.get('permalink', '')}",
@@ -220,6 +305,7 @@ def _search_reddit(query: str, max_results: int = 10, **kwargs) -> list[dict]:
                 "score": post.get("score", 0),
                 "comments": post.get("num_comments", 0),
                 "upvote_ratio": post.get("upvote_ratio", 0),
+                "images": images,
             })
         logger.info(f"Reddit search: {len(results)} results for '{query[:40]}...'")
         results.sort(key=lambda r: r["score"] * r["comments"], reverse=True)

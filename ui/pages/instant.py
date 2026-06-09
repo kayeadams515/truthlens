@@ -6,6 +6,7 @@ from datetime import datetime
 from config import is_any_llm_configured
 from utils.logger import logger
 from utils.i18n import t
+from utils.image_utils import score_images, format_images_for_llm
 
 
 def render_instant():
@@ -117,6 +118,22 @@ def _run_controversy_mode(topic: str, controversy_angle: str = "", info_search_r
             for r in info_search_results[:8]
         )
 
+    # ---- Extract and score images from search results ----
+    available_images_text = ""
+    cover_image = None
+    if info_search_results:
+        scored = score_images(info_search_results)
+    else:
+        # Fresh controversy mode — do a quick search to get cover images
+        try:
+            from utils.search import bilingual_search
+            quick_results = bilingual_search(query=topic, max_results=6, search_depth="basic", topic="news", days=7)
+            scored = score_images(quick_results) if quick_results else []
+        except Exception:
+            scored = []
+    if scored:
+        available_images_text = format_images_for_llm(scored)
+
     # ---- Classify user intent ----
     intent = "debate_understanding"  # default
     if controversy_angle and is_any_llm_configured():
@@ -159,7 +176,7 @@ def _run_controversy_mode(topic: str, controversy_angle: str = "", info_search_r
         st.write(eta)
 
         start_time = datetime.now()
-        report = _run_live_analysis(topic, controversy_angle, existing_info, intent)
+        report = _run_live_analysis(topic, controversy_angle, existing_info, intent, available_images_text)
         elapsed = (datetime.now() - start_time).total_seconds()
 
         if report is None:
@@ -272,7 +289,10 @@ def _run_insight_mode(topic: str, guidance: str = ""):
 
         # Step 3: Narrative report synthesis (LLM Call 2)
         with st.spinner(t("✍️ 正在撰写洞察报告...")):
-            report = _synthesize_insight_report(topic, opinion_data, search_results)
+            # Extract images for cover and LLM context
+            scored = score_images(search_results)
+            images_text = format_images_for_llm(scored) if scored else ""
+            report = _synthesize_insight_report(topic, opinion_data, search_results, images_text)
 
         elapsed = (datetime.now() - start_time).total_seconds()
         st.caption(t("⏱️ 耗时 {elapsed:.0f} 秒", elapsed=elapsed))
@@ -432,7 +452,7 @@ def _analyze_opinion_camps(topic: str, search_results: list[dict], guidance: str
         return {}
 
 
-def _synthesize_insight_report(topic: str, opinion_data: dict, search_results: list[dict]) -> str:
+def _synthesize_insight_report(topic: str, opinion_data: dict, search_results: list[dict], images_text: str = "") -> str:
     """LLM Call 2: Synthesize opinion data into a natural narrative report.
     No rigid template — writes like a social observation article.
     """
@@ -479,6 +499,8 @@ def _synthesize_insight_report(topic: str, opinion_data: dict, search_results: l
     topic_type = opinion_data.get("topic_type", "controversy")
     prompt = t("prompt.insight.synthesize_report", topic=topic, topic_type=topic_type,
                analysis_json=analysis_json, meme_section=meme_section, quotes_text=quotes_text)
+    if images_text:
+        prompt += "\n\n" + images_text
 
     try:
         return llm.call(messages=[{"role": "user", "content": prompt}])
@@ -964,7 +986,10 @@ def _run_info_mode(topic: str):
         return
 
     with st.spinner(t("📝 正在梳理信息...")):
-        summary = _summarize_info(topic, search_results)
+        # Extract images for cover and LLM context
+        scored = score_images(search_results)
+        images_text = format_images_for_llm(scored) if scored else ""
+        summary = _summarize_info(topic, search_results, images_text)
 
     # Cache for redisplay
     st.session_state.current_summary = summary
@@ -1143,7 +1168,7 @@ def _show_search_candidates(results: list[dict]):
                 st.rerun()
 
 
-def _summarize_info(topic: str, search_results: list[dict]) -> str:
+def _summarize_info(topic: str, search_results: list[dict], images_text: str = "") -> str:
     if is_any_llm_configured() and search_results:
         try:
             from config import create_integration_llm
@@ -1155,6 +1180,8 @@ def _summarize_info(topic: str, search_results: list[dict]) -> str:
             )
 
             prompt = t("prompt.summarize_info", topic=topic, sources_text=sources_text)
+            if images_text:
+                prompt += "\n\n" + images_text
 
             return llm.call(messages=[{"role": "user", "content": prompt}])
         except Exception as e:
@@ -1175,10 +1202,11 @@ def _summarize_info(topic: str, search_results: list[dict]) -> str:
 # Live / Mock Analysis (Controversy Mode)
 # ============================================================
 
-def _run_live_analysis(topic: str, controversy_angle: str = "", existing_info: str = "", intent: str = "debate_understanding") -> str | None:
+def _run_live_analysis(topic: str, controversy_angle: str = "", existing_info: str = "",
+                         intent: str = "debate_understanding", available_images_text: str = "") -> str | None:
     try:
         from agents.crew import run_analysis
-        report = run_analysis(topic, controversy_angle, existing_info, intent)
+        report = run_analysis(topic, controversy_angle, existing_info, intent, available_images_text)
         return str(report)
     except Exception as e:
         logger.error(f"Live analysis failed: {e}")

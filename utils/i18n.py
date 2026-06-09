@@ -635,7 +635,8 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
             "## 关键规则\n"
             "1. **绝不编造数据**：所有数字、百分比、事实陈述必须来自上游Agent的输出\n"
             "2. **区分事实与观点**：明确标注哪部分是'事实陈述'，哪部分是'观点推断'\n"
-            "3. **不确定性诚实表达**：不知道就说不知道，证据不足就标注证据不足"
+            "3. **不确定性诚实表达**：不知道就说不知道，证据不足就标注证据不足\n"
+            "4. **插入配图**：如果下方提供了可用图片，使用 `![描述](URL)` 在报告合适位置插入相关图片。只使用与上下文内容直接相关的图片，不要编造图片URL"
         ),
         "en": (
             "Integrate analysis from the Scout, Challenger, and Judge into a structured, "
@@ -682,7 +683,8 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
             "## Key Rules\n"
             "1. **Never fabricate data**: All numbers, percentages, and factual claims must come from upstream agents\n"
             "2. **Distinguish fact from opinion**: Clearly label what is 'factual' vs. 'opinion/inference'\n"
-            "3. **Honest uncertainty**: Say you don't know when you don't know; mark insufficient evidence clearly"
+            "3. **Honest uncertainty**: Say you don't know when you don't know; mark insufficient evidence clearly\n"
+            "4. **Embed images**: If available images are provided below, use `![description](URL)` markdown to insert relevant images at appropriate points in the report. Only use images that clearly relate to the adjacent content. DO NOT fabricate image URLs"
         ),
     },
     "agent.editor.backstory": {
@@ -1005,7 +1007,8 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
             "1. 任何数字、事实、百分比必须来自上游Agent的输出，严禁自行编造\n"
             "2. 每条事实性陈述必须带来源标记 [来源: xxx]\n"
             "3. 明确区分'事实'和'观点/推断'\n"
-            "4. 不确定的地方标注'待证实'，不要强行得出结论"
+            "4. 不确定的地方标注'待证实'，不要强行得出结论\n"
+            "5. 如果下方提供了可用图片列表，使用 `![描述](URL)` 在报告相应章节插入配图。优先使用影响力评分高的图片，只插入与内容直接相关的图片"
         ),
         "en": (
             "The Scout, Challenger, and Judge have completed their analysis. Now it's your turn — "
@@ -1048,7 +1051,8 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
             "1. All numbers, facts, percentages must come from upstream agents — never fabricate\n"
             "2. Every factual statement must carry a source tag [Source: xxx]\n"
             "3. Clearly distinguish 'fact' from 'opinion/inference'\n"
-            "4. Mark uncertainty honestly — say 'Unverified' when uncertain, don't force conclusions"
+            "4. Mark uncertainty honestly — say 'Unverified' when uncertain, don't force conclusions\n"
+            "5. If available images are provided below, embed them using `![description](URL)` at relevant sections. Prefer higher-influence images. Only insert images clearly related to the content"
         ),
     },
     "task.crew.editor.expected": {
@@ -1100,7 +1104,8 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
             "2. 每条事实性陈述必须带来源标记 [来源: xxx]\n"
             "3. 明确区分'事实'和'观点/推断'\n"
             "4. 不确定的地方标注'待证实'\n"
-            "5. 不要强行制造对立——如果各方其实没什么根本分歧，就如实说"
+            "5. 不要强行制造对立——如果各方其实没什么根本分歧，就如实说\n"
+            "6. 如果下方提供了可用图片列表，使用 `![描述](URL)` 在报告相应章节插入配图。优先使用影响力评分高的图片，只插入与内容直接相关的图片"
         ),
         "en": (
             "The Scout and Challenger have completed intelligence gathering and cross-examination. "
@@ -1138,7 +1143,8 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
             "2. Every factual statement must carry a source tag [source: xxx]\n"
             "3. Clearly distinguish 'facts' from 'opinions/inferences'\n"
             "4. Mark uncertain items as 'Unverified'\n"
-            "5. Don't force a dichotomy — if there is no fundamental disagreement, say so honestly"
+            "5. Don't force a dichotomy — if there is no fundamental disagreement, say so honestly\n"
+            "6. If available images are provided below, embed them using `![description](URL)` at relevant sections. Prefer higher-influence images. Only insert images clearly related to the content"
         ),
     },
     "task.crew.editor.debate_map.expected": {
@@ -1180,7 +1186,8 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
             "2. 5-8 段，内容覆盖：事件起因、经过、争议焦点、当前结果、后续影响（自然融入叙述中）\n"
             "3. 每个自然段末尾用上标索引标注信息来源，如 [1]、[2]\n"
             "4. 不要添加主观评价，纯资讯梳理\n"
-            "5. 文末附「信息来源索引」列出每个编号对应的来源名称\n\n"
+            "5. 文末附「信息来源索引」列出每个编号对应的来源名称\n"
+            "6. 如果下方提供了可用图片，使用 `![描述](URL)` 在文章合适位置插入相关配图。优先使用影响力评分高的图片，只插入与内容直接相关的图片\n\n"
             "信息来源：\n"
             "{sources_text}"
         ),
@@ -1191,7 +1198,8 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
             "2. 5-8 paragraphs covering: cause, progression, controversy, current outcome, aftermath (woven naturally into the narrative)\n"
             "3. End each paragraph with superscript source citations like [1], [2]\n"
             "4. No subjective commentary — pure factual summary\n"
-            "5. End with a 'Source Index' listing each numbered source\n\n"
+            "5. End with a 'Source Index' listing each numbered source\n"
+            "6. If available images are provided below, use `![description](URL)` to embed relevant images at appropriate points. Prefer higher-influence images. Only insert images clearly related to the content\n\n"
             "Sources:\n"
             "{sources_text}"
         ),
@@ -1396,7 +1404,8 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
             "- 引用代表性言论增加现场感\n"
             "- 可以锐利但不偏激，避免学术腔和说教感\n"
             "- 如果话题本身没什么争议性，就不要强行制造对立\n"
-            "- ⚠️ 绝对不要提及或评论「分析数据」「搜索结果」「提供的数据」「数据缺失」「数据质量」等元信息。你不是在写数据分析报告，你是在写一篇面向读者的文章。数据只是你的参考素材，不是你的写作对象。"
+            "- ⚠️ 绝对不要提及或评论「分析数据」「搜索结果」「提供的数据」「数据缺失」「数据质量」等元信息。你不是在写数据分析报告，你是在写一篇面向读者的文章。数据只是你的参考素材，不是你的写作对象。\n"
+            "- 如果下方提供了可用图片，使用 `![描述](URL)` 在文章合适位置插入配图来增强视觉效果。优先使用影响力评分高的图片源"
         ),
         "en": (
             "You are a social observer deeply versed in internet culture. Write an insight report about「{topic}」.\n\n"
@@ -1437,7 +1446,8 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
             "- Quote representative voices for authenticity\n"
             "- Sharp insights welcome but don't take sides emotionally\n"
             "- If the topic has no real controversy, don't force one\n"
-            "- ⚠️ NEVER mention or comment on \"analysis data\", \"search results\", \"provided data\", \"data missing\", or \"data quality\". You are writing an article for readers, not a data analysis report. The data is your reference material, not your subject."
+            "- ⚠️ NEVER mention or comment on \"analysis data\", \"search results\", \"provided data\", \"data missing\", or \"data quality\". You are writing an article for readers, not a data analysis report. The data is your reference material, not your subject.\n"
+            "- If available images are provided below, use `![description](URL)` to embed relevant images at appropriate points to enhance visual presentation. Prefer images from higher-influence sources"
         ),
     },
 
@@ -1586,20 +1596,38 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
     "prompt.weekly_news.classify": {
         "zh": (
             "请对以下新闻逐条处理，返回 JSON 数组。每个元素格式：\n"
-            '{{"id": 序号, "title_cn": "中文标题(简洁)", "region": "china/global", "controversy": "high/medium/low", "reason": "一句话说明为什么是这个争议等级"}}\n\n'
+            '{{"id": 序号, "title_cn": "中文标题(简洁)", "region": "china/global", "controversy": "high/medium/low", "is_news": true/false, "duplicate_of": null, "reason": "一句话说明"}}\n\n'
             "判断标准：\n"
             "- region: 与中国直接相关(政治/经济/社会/科技)→china，否则→global\n"
-            "- controversy: 存在明显对立的观点/利益冲突/舆论反转→high，有一定讨论度→medium，纯资讯→low\n\n"
+            "- controversy: 存在明显对立的观点/利益冲突/舆论反转→high，有一定讨论度→medium，纯资讯→low\n"
+            "- is_news: 这是否是一篇真实的新闻报导？以下情况填 false：\n"
+            "  · 热点列表/汇总/盘点/舆情报告类页面（如\"本周热点新闻列表\"、\"舆情周报\"）\n"
+            "  · 纯科技产品评测/软文/推广内容（非新闻事件报导）\n"
+            "  · 非编辑内容的博客/个人观点（无新闻事实基础）\n"
+            "  · 搜索引擎结果页/聚合页/导航页\n"
+            "- duplicate_of: 如果本条与列表中另一条报导的是**同一个核心事件**，填写那条的 id 序号；否则填 null。\n"
+            "  · 同一事件的不同媒体报导→标记为重复，保留权威来源（新华社>自媒体，BBC>个人博客）的那条作为主条\n"
+            "  · 标题相似但事件不同→不标重复\n"
+            "  · 同一大话题下的不同侧面→不标重复\n\n"
             "新闻列表：\n"
             "{items_text}\n\n"
             "只返回 JSON 数组，不要其他内容。"
         ),
         "en": (
             "Process each news item below and return a JSON array. Each element format:\n"
-            '{{"id": number, "title_cn": "English title (concise)", "region": "china/global", "controversy": "high/medium/low", "reason": "One sentence explaining the controversy level"}}\n\n'
+            '{{"id": number, "title_cn": "English title (concise)", "region": "china/global", "controversy": "high/medium/low", "is_news": true/false, "duplicate_of": null, "reason": "One sentence explanation"}}\n\n'
             "Criteria:\n"
             "- region: Directly related to China (politics/economy/society/tech) → china, otherwise → global\n"
-            "- controversy: Clear opposing viewpoints/conflicts of interest/opinion reversal → high, moderate discussion → medium, pure news → low\n\n"
+            "- controversy: Clear opposing viewpoints/conflicts of interest/opinion reversal → high, moderate discussion → medium, pure news → low\n"
+            "- is_news: Is this a real news article? Set false for:\n"
+            "  · Hot lists/roundups/digests/meta pages (e.g. \"Weekly hot news list\", \"Sentiment report\")\n"
+            "  · Pure tech product reviews/advertorials (not news event coverage)\n"
+            "  · Non-editorial blog posts/personal opinions (no factual news basis)\n"
+            "  · Search engine result pages / aggregation / navigation pages\n"
+            "- duplicate_of: If this item covers the **same core event** as another item in the list, set to that item's id number; otherwise null.\n"
+            "  · Same event reported by different outlets → mark as duplicate, keep the authoritative source (Reuters/AP/BBC/Xinhua > blog/aggregator) as primary\n"
+            "  · Similar titles but different events → NOT duplicate\n"
+            "  · Different angles on the same broad topic → NOT duplicate\n\n"
             "News items:\n"
             "{items_text}\n\n"
             "Return only the JSON array, nothing else."

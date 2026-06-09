@@ -26,8 +26,15 @@ def _call_llm(prompt: str) -> str:
         return ""
 
 
-def _translate_and_classify(news_items: list[dict]) -> list[dict]:
-    """Use LLM to translate titles to Chinese and classify as CN/Global + controversy level."""
+def _llm_filter_and_classify(news_items: list[dict]) -> list[dict]:
+    """Use LLM to translate, classify, filter non-news, and deduplicate.
+
+    Extends the classification prompt to ask the LLM to:
+      - Mark non-news items (aggregation pages, blog posts, tech reviews, etc.)
+      - Identify duplicate coverage of the same core event
+
+    Then filters out non-news and duplicates before returning.
+    """
     if not news_items or not is_any_llm_configured():
         # Fallback: preserve original region, use title as-is
         for item in news_items:
@@ -36,10 +43,11 @@ def _translate_and_classify(news_items: list[dict]) -> list[dict]:
             item["controversy"] = "unknown"
         return news_items
 
-    # Build prompt
+    # Process up to 18 items through LLM (increased from 12 so enough survive filtering)
+    batch = news_items[:18]
     items_text = "\n".join(
         f"{i+1}. {item.get('title', '')} | source: {item.get('source', '')}"
-        for i, item in enumerate(news_items[:12])
+        for i, item in enumerate(batch)
     )
 
     prompt = t("prompt.weekly_news.classify", items_text=items_text)
@@ -65,16 +73,53 @@ def _translate_and_classify(news_items: list[dict]) -> list[dict]:
             item["controversy"] = "unknown"
         return news_items
 
-    # Merge classifications back
+    # Merge classifications back (only for the batch we sent)
     class_map = {c["id"]: c for c in classifications}
-    for i, item in enumerate(news_items):
+    for i, item in enumerate(batch):
         cls = class_map.get(i + 1, {})
         item["title_cn"] = cls.get("title_cn", item.get("title", ""))
         item["region"] = cls.get("region", item.get("region", "unknown"))
         item["controversy"] = cls.get("controversy", "unknown")
         item["reason"] = cls.get("reason", "")
+        item["is_news"] = cls.get("is_news", True)       # default: keep
+        item["duplicate_of"] = cls.get("duplicate_of")   # None = not duplicate
 
-    return news_items
+    # ---- Post-LLM filtering ----
+    filtered: list[dict] = []
+    removed_non_news = 0
+    removed_duplicate = 0
+
+    # Build a set of item indices that are marked as duplicates of another item
+    duplicate_indices: set[int] = set()
+    for i, item in enumerate(batch):
+        dup = item.get("duplicate_of")
+        if dup is not None and isinstance(dup, int) and 1 <= dup <= len(batch):
+            duplicate_indices.add(i)  # 0-based index of the duplicate
+
+    # Second pass: filter
+    for i, item in enumerate(batch):
+        if item.get("is_news") is False:
+            removed_non_news += 1
+            continue
+        if i in duplicate_indices:
+            removed_duplicate += 1
+            continue
+        filtered.append(item)
+
+    if removed_non_news or removed_duplicate:
+        logger.info(
+            f"LLM filter: removed {removed_non_news} non-news, "
+            f"{removed_duplicate} duplicates from {len(batch)} items"
+        )
+
+    # For items beyond the batch (if any), keep as-is with fallback fields
+    for item in news_items[18:]:
+        item["title_cn"] = item.get("title", "")
+        item["region"] = item.get("region", "unknown")
+        item["controversy"] = "unknown"
+        filtered.append(item)
+
+    return filtered
 
 
 def _domain_aware() -> bool:
@@ -211,9 +256,9 @@ def fetch_weekly_hot_news() -> dict:
     china_items = _filter_results(china_items)
     global_items = _filter_results(global_items)
 
-    # ---- Translate & Classify (CN titles to Chinese, EN titles to Chinese) ----
-    china_items = _translate_and_classify(china_items)
-    global_items = _translate_and_classify(global_items)
+    # ---- LLM Filter & Classify (translate, dedup, remove non-news) ----
+    china_items = _llm_filter_and_classify(china_items)
+    global_items = _llm_filter_and_classify(global_items)
 
     # Sort by controversy level
     controversy_order = {"high": 0, "medium": 1, "low": 2}

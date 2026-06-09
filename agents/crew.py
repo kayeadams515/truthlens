@@ -21,6 +21,7 @@ def _build_tasks(
     challenger,
     judge,
     editor,
+    available_images_text: str = "",
 ) -> list[Task]:
     """Build the debate pipeline tasks. 3 tasks for debate_understanding, 4 for truth_seeking."""
 
@@ -56,6 +57,7 @@ def _build_tasks(
         context=[task_scout],
     )
 
+    # Build Editor description, appending image context if available
     if is_truth_seeking:
         # ---- Task 3: Judge scores evidence and calculates truth probability ----
         task_judge = Task(
@@ -66,8 +68,11 @@ def _build_tasks(
         )
 
         # ---- Task 4: Editor produces the final structured report with truth probability ----
+        editor_desc = t("task.crew.editor")
+        if available_images_text:
+            editor_desc += "\n\n" + available_images_text
         task_editor = Task(
-            description=t("task.crew.editor"),
+            description=editor_desc,
             expected_output=t("task.crew.editor.expected"),
             agent=editor,
             context=[task_scout, task_challenger, task_judge],
@@ -76,8 +81,11 @@ def _build_tasks(
         return [task_scout, task_challenger, task_judge, task_editor]
     else:
         # ---- Task 3: Editor produces debate landscape report (no Judge) ----
+        editor_desc = t("task.crew.editor.debate_map")
+        if available_images_text:
+            editor_desc += "\n\n" + available_images_text
         task_editor = Task(
-            description=t("task.crew.editor.debate_map"),
+            description=editor_desc,
             expected_output=t("task.crew.editor.debate_map.expected"),
             agent=editor,
             context=[task_scout, task_challenger],
@@ -86,7 +94,8 @@ def _build_tasks(
         return [task_scout, task_challenger, task_editor]
 
 
-def run_analysis(topic: str, controversy_angle: str = "", existing_info: str = "", intent: str = "debate_understanding") -> str:
+def run_analysis(topic: str, controversy_angle: str = "", existing_info: str = "",
+                  intent: str = "debate_understanding", available_images_text: str = "") -> str:
     """Run the adaptive debate pipeline on a given topic.
 
     Args:
@@ -95,12 +104,14 @@ def run_analysis(topic: str, controversy_angle: str = "", existing_info: str = "
         existing_info: Optional existing search results from info mode.
         intent: "debate_understanding" (3 agents, no truth probability) or
                 "truth_seeking" (4 agents, full Bayesian pipeline).
+        available_images_text: Optional formatted image list for the Editor agent.
 
     Returns:
         The final structured Markdown report from the Editor agent.
     """
     logger.info(f"Starting analysis pipeline: topic={topic[:40]}, intent={intent}, "
-                f"has_angle={bool(controversy_angle)}, has_existing_info={bool(existing_info)}")
+                f"has_angle={bool(controversy_angle)}, has_existing_info={bool(existing_info)}, "
+                f"has_images={bool(available_images_text)}")
 
     # Create agents
     scout = create_scout_agent()
@@ -109,7 +120,8 @@ def run_analysis(topic: str, controversy_angle: str = "", existing_info: str = "
     editor = create_editor_agent()
 
     # Build tasks with proper context chaining
-    tasks = _build_tasks(topic, controversy_angle, existing_info, intent, scout, challenger, judge, editor)
+    tasks = _build_tasks(topic, controversy_angle, existing_info, intent,
+                         scout, challenger, judge, editor, available_images_text)
 
     # Assemble crew in sequential mode
     agents = [scout, challenger, editor]

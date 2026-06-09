@@ -74,6 +74,25 @@ def apply_theme():
         opacity: 0.8;
     }
 
+    /* ========== Report Images ========== */
+    .report-container img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 8px;
+        margin: 20px 0;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        display: block;
+    }
+    /* Captions (rendered as <em> after <img> when using ![]() ) */
+    .report-container img + em {
+        display: block;
+        text-align: center;
+        font-size: 0.85em;
+        opacity: 0.7;
+        margin-top: 4px;
+        margin-bottom: 16px;
+    }
+
     /* ========== Agent Thought Blocks ========== */
     .thought-block {
         border-left: 3px solid var(--cyan);
